@@ -1,4 +1,4 @@
-from . import _locks_collection, _jobs_collection, _get_lock_collection_key, _generate_key, _Lock, _Encoder
+from . import _locks_collection, _jobs_collection, _get_lock_collection_key, _generate_key, _Lock, _Encoder, JobIsCompleted
 from datetime import datetime
 import json
 
@@ -43,17 +43,17 @@ class Job:
 	def put(self, collection, key, value, ref = None):	
 		self._verify_job_is_active()
 		lock = self._lock(collection, key, ref)
-		response = self._client.put(collection, key, value, ref)
+		response = self._client.put(collection, key, value, ref, False)
 		response.raise_for_status()
 		# If ref was passed, ensure that the value has not changed - if ref was not passed, retrieve the current ref and store it.
-		response = self._client.get(collection, key, ref)
+		response = self._client.get(collection, key, ref, False)
 		response.raise_for_status()
 		lock.ref = response.ref
 		return response
 
 	def complete(self):
 		for lock in self._locks:
-			response = self._client.delete(_locks_collection, _get_lock_collection_key(lock.collection, lock.key), lock.lock_ref)
+			response = self._client.delete(_locks_collection, _get_lock_collection_key(lock.collection, lock.key), lock.lock_ref, False)
 			response.raise_for_status()
 		# TODO: Delete journal.
 		self._locks = []
