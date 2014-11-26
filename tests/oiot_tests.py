@@ -1,5 +1,5 @@
 import os, sys, unittest
-from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted
+from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, _locks_collection, _jobs_collection
 
 class OiotTests(unittest.TestCase):
 	def test_everything(self):
@@ -10,8 +10,8 @@ class OiotTests(unittest.TestCase):
 		# Clear test collections.
 		client.delete('test1')
 		client.delete('test2')
-		client.delete('oiot-locks')
-		client.delete('oiot-jobs')
+		client.delete(_locks_collection)
+		client.delete(_jobs_collection)
 
 		# Add a record without a job.
 		response1 = client.post('test1', {})

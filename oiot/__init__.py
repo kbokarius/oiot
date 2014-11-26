@@ -10,28 +10,31 @@ def _generate_key():
 def _get_lock_collection_key(collection_to_lock, key_to_lock):
 	return collection_to_lock + "-" + key_to_lock
 
-class _Encoder(json.JSONEncoder):
-	def default(self, obj):
-		if isinstance(obj, datetime.datetime):
-			return obj.isoformat()
-		return json.JSONEncoder.default(self, obj)
-
 class _Lock:
 	job_id = None
 	timestamp = None
 	collection = None
 	key = None
-	ref = None
 	lock_ref = None
 
-class _JobItem:
-	job_item_type = None
+class _JournalItem:
+	timestamp = None
 	collection = None
 	key = None
-	value = None
+	original_value = None
 	original_ref = None
+	new_value = None
+	new_ref = None
 	response = None
 	is_completed = False
+
+class _Encoder(json.JSONEncoder):
+	def default(self, obj):
+		if isinstance(obj, datetime.datetime):
+			return obj.isoformat()
+		elif isinstance(obj, _JournalItem):
+			return vars(obj)
+		return json.JSONEncoder.default(self, obj)
 
 class CollectionKeyIsLocked(Exception):
 	pass
