@@ -58,7 +58,7 @@ class Job:
 		# Indicates a new record will be created.
 		if response.status_code == 404: 
 			pass
-		# Indicates an existing record will be updated.
+		# Indicates an existing record will be updated so store the original ref and value.
 		elif response.status_code == 200: 
 			journal_item.original_value = response.json
 			journal_item.original_ref = response.ref
@@ -66,6 +66,7 @@ class Job:
 			response.raise_for_status()
 		response = self._client.put(collection, key, value, ref, False)
 		response.raise_for_status()
+		# Store the new ref and value.
 		journal_item.new_value = value
 		journal_item.new_ref = response.ref
 		return response
