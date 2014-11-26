@@ -5,7 +5,8 @@ _locks_collection = 'oiot-locks'
 _jobs_collection = 'oiot-jobs'
 
 def _generate_key():
-	return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(16))	
+	return ''.join(random.choice(string.ascii_uppercase + string.digits) 
+		   for _ in range(16))	
 
 def _get_lock_collection_key(collection_to_lock, key_to_lock):
 	return collection_to_lock + "-" + key_to_lock
@@ -37,6 +38,15 @@ class _Encoder(json.JSONEncoder):
 		return json.JSONEncoder.default(self, obj)
 
 class CollectionKeyIsLocked(Exception):
+	pass
+
+class FailedToComplete(Exception):
+	pass
+
+class FailedToRollBack(Exception):
+	pass
+
+class JobIsFailed(Exception):
 	pass
 
 class JobIsCompleted(Exception):

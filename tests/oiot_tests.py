@@ -14,23 +14,23 @@ class OiotTests(unittest.TestCase):
 		client.delete(_jobs_collection)
 
 		# Add a record without a job.
-		response1 = client.post('test1', {})
+		response1 = client.post('test1', {'testvalue1_key' : 'testvalue1_value'})
 		response1.raise_for_status()
-		print 'Added test1 record with key ' + response1.key
+		print('Added test1 record with key ' + response1.key)
 
 		# Create a new job.
 		job = Job(client)
 
 		# Add a record using the job thereby locking the record and journaling the work.
-		response2 = job.post('test2', {})
-		print 'Added test2 record with key ' + response2.key
+		response2 = job.post('test2', {'testvalue2_key' : 'testvalue2_value'})
+		print('Added test2 record with key ' + response2.key)
 
 		# Attempt to write to the new test2 record using the client and verify CollectionKeyIsLocked is raised.
 		self.assertRaises(CollectionKeyIsLocked, client.put, 'test2', response2.key, {})
 
 		# Update the very first record with the second record's key using the job, thereby locking the very first record and journaling the work.
 		response3 = job.put('test1', response1.key, { 'test2key': response2.key })
-		print 'Updated test1 record with test2 key'
+		print('Updated test1 record with test2 key')
 
 		# Complete the job which removes all locks used by the job and clears the journal.
 		job.complete() 

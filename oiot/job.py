@@ -1,8 +1,12 @@
-from . import _locks_collection, _jobs_collection, _get_lock_collection_key, _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted
+import sys
+from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
+			  _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
+			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
+			  FailedToRollBack
+
 from datetime import datetime
 import json
 
-# TODO: Try to inherit from porc.Client and refactor accordingly.
 class Job:
 	def __init__(self, client):
 		self._job_id = _generate_key()
@@ -11,12 +15,31 @@ class Job:
 		self._journal = []
 		self.is_completed = False
 		self.is_rolled_back = False
+		# A job should fail only in the event of an exception during
+		# completion or roll-back.
+		self.is_failed = False
 
 	def _verify_job_is_active(self):
-		if self.is_completed:
+		if self.is_failed:
+			raise JobIsFailed
+		elif self.is_completed:
 			raise JobIsCompleted
-		if self.is_rolled_back:
+		elif self.is_rolled_back:
 			raise JobIsRolledBack
+
+	def _remove_locks(self):		
+		for lock in self._locks:
+			response = self._client.delete(_locks_collection, 
+					   _get_lock_collection_key(lock.collection, lock.key), 
+					   lock.lock_ref, False)
+			response.raise_for_status()
+		self._locks = []
+
+	def _remove_jobs(self):
+		response = self._client.delete(_jobs_collection, self._job_id, 
+				   None, False)
+		response.raise_for_status()
+		self._journal = []
 
 	def _lock(self, collection, key, ref = None):
 		for lock in self._locks:
@@ -27,7 +50,10 @@ class Job:
 		lock.timestamp = datetime.utcnow()
 		lock.collection = collection
 		lock.key = key
-		lock_response = self._client.put(_locks_collection, _get_lock_collection_key(collection, key), json.loads(json.dumps(vars(lock), cls=_Encoder)), None, False)
+		lock_response = self._client.put(_locks_collection, 
+						_get_lock_collection_key(collection, key), 
+						json.loads(json.dumps(vars(lock), cls=_Encoder)), 
+						None, False)
 		lock_response.raise_for_status()
 		self._locks.append(lock)
 		lock.lock_ref = lock_response.ref
@@ -39,7 +65,9 @@ class Job:
 		journal_item.collection = collection
 		journal_item.key = key
 		self._journal.append(journal_item)
-		job_response = self._client.put(_jobs_collection, self._job_id, json.loads(json.dumps({'items: ': self._journal}, cls=_Encoder)), None, False)
+		job_response = self._client.put(_jobs_collection, self._job_id, 
+					   json.loads(json.dumps({'items: ': self._journal}, 
+					   cls=_Encoder)), None, False)
 		job_response.raise_for_status()
 		return journal_item
 		
@@ -48,17 +76,20 @@ class Job:
 		key = _generate_key()
 		return self.put(collection, key, value)
 
-	# TODO: Catch all exceptions - if one is caught, roll-back, and raise a wrapped exception.
+	# TODO: Catch all exceptions - if one is caught, roll-back, and 
+	# raise a wrapped exception.
 	def put(self, collection, key, value, ref = None):	
 		self._verify_job_is_active()
 		lock = self._lock(collection, key, ref)
-		# If ref was passed, ensure that the value has not changed - if ref was not passed, retrieve the current ref and store it.
+		# If ref was passed, ensure that the value has not changed.
+		# If ref was not passed, retrieve the current ref and store it.
 		journal_item = self._add_journal_item(collection, key, value)
 		response = self._client.get(collection, key, ref, False)
 		# Indicates a new record will be created.
 		if response.status_code == 404: 
 			pass
-		# Indicates an existing record will be updated so store the original ref and value.
+		# Indicates an existing record will be updated so store the 
+		# original ref and value.
 		elif response.status_code == 200: 
 			journal_item.original_value = response.json
 			journal_item.original_ref = response.ref
@@ -71,12 +102,16 @@ class Job:
 		journal_item.new_ref = response.ref
 		return response
 
+	def roll_back(self):
+		try: 
+			self._remove_locks()
+			self._remove_jobs()
+			self.is_rolled_back = True
+		except Exception as e:
+			raise FailedToRollBack('inner exception: ' + e.__class__.__name__)
+
 	def complete(self):
-		for lock in self._locks:
-			response = self._client.delete(_locks_collection, _get_lock_collection_key(lock.collection, lock.key), lock.lock_ref, False)
-			response.raise_for_status()
-		self._locks = []
-		response = self._client.delete(_jobs_collection, self._job_id, None, False)
-		response.raise_for_status()
-		self._journal = []
+		self.roll_back()
+		self._remove_locks()
+		self._remove_jobs()
 		self.is_completed = True
