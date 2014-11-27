@@ -2,7 +2,8 @@ import sys, traceback
 from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 			  _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
 			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
-			  FailedToRollBack, _format_exception, RollbackCausedByException
+			  FailedToRollBack, _format_exception, RollbackCausedByException, \
+			  _max_job_time_in_ms, JobTimedOut
 
 from datetime import datetime
 import json
@@ -10,6 +11,7 @@ import json
 class Job:
 	def __init__(self, client):
 		self._job_id = _generate_key()
+		self._timestamp = datetime.utcnow()
 		self._client = client
 		self._locks = []
 		self._journal = []
@@ -27,8 +29,15 @@ class Job:
 		elif self.is_rolled_back:
 			raise JobIsRolledBack
 
+	def _verify_job_is_not_timed_out(self):
+		elapsed_milliseconds = (datetime.utcnow() - 
+								self._timestamp).microseconds / 1000.0
+		if elapsed_milliseconds > _max_job_time_in_ms:
+			raise JobTimedOut('Ran for ' + str(JobTimedOut) + 'ms')
+
 	def _remove_locks(self):		
 		for lock in self._locks:
+			self._verify_job_is_not_timed_out()
 			response = self._client.delete(_locks_collection, 
 					   _get_lock_collection_key(lock.collection, lock.key), 
 					   lock.lock_ref, False)
@@ -36,15 +45,17 @@ class Job:
 		self._locks = []
 
 	def _remove_jobs(self):
+		self._verify_job_is_not_timed_out()
 		response = self._client.delete(_jobs_collection, self._job_id, 
 				   None, False)
 		response.raise_for_status()
 		self._journal = []
 
-	def _lock(self, collection, key, ref = None):
+	def _get_lock(self, collection, key, ref = None):
 		for lock in self._locks:
 			if lock.collection == collection and lock.key == key:
 				return lock
+		self._verify_job_is_not_timed_out()
 		lock = _Lock()
 		lock.job_id = self._job_id
 		lock.timestamp = datetime.utcnow()
@@ -60,19 +71,19 @@ class Job:
 		return lock
 
 	def _add_journal_item(self, collection, key, value):
+		self._verify_job_is_not_timed_out()
 		journal_item = _JournalItem()
 		journal_item.timestamp = datetime.utcnow()
 		journal_item.collection = collection
 		journal_item.key = key
 		self._journal.append(journal_item)
 		job_response = self._client.put(_jobs_collection, self._job_id, 
-					   json.loads(json.dumps({'items: ': self._journal}, 
-					   cls=_Encoder)), None, False)
+					   json.loads(json.dumps({'timestamp': self._timestamp,
+					   'items': self._journal}, cls=_Encoder)), None, False)
 		job_response.raise_for_status()
 		return journal_item
 		
 	def post(self, collection, value):
-		self._verify_job_is_active()
 		key = _generate_key()
 		return self.put(collection, key, value)
 
@@ -81,10 +92,11 @@ class Job:
 	def put(self, collection, key, value, ref = None):	
 		self._verify_job_is_active()
 		try:
-			lock = self._lock(collection, key, ref)
+			lock = self._get_lock(collection, key, ref)
 			# If ref was passed, ensure that the value has not changed.
 			# If ref was not passed, retrieve the current ref and store it.
 			journal_item = self._add_journal_item(collection, key, value)
+			self._verify_job_is_not_timed_out()
 			response = self._client.get(collection, key, ref, False)
 			# Indicates a new record will be created.
 			if response.status_code == 404: 
@@ -96,6 +108,7 @@ class Job:
 				journal_item.original_ref = response.ref
 			else:
 				response.raise_for_status()
+			self._verify_job_is_not_timed_out()
 			response = self._client.put(collection, key, value, ref, False)
 			response.raise_for_status()
 			# Store the new ref and value.
@@ -109,6 +122,7 @@ class Job:
 	def roll_back(self, exception_causing_rollback = ''):
 		try: 
 			for journal_item in self._journal:
+				self._verify_job_is_not_timed_out()
 				# Was a new value successfully set?
 				if journal_item.new_ref:
 					# Was there an original value?
