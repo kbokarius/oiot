@@ -1,8 +1,8 @@
-import sys
+import sys, traceback
 from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 			  _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
 			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
-			  FailedToRollBack
+			  FailedToRollBack, _format_exception, RollbackCausedByException
 
 from datetime import datetime
 import json
@@ -80,38 +80,87 @@ class Job:
 	# raise a wrapped exception.
 	def put(self, collection, key, value, ref = None):	
 		self._verify_job_is_active()
-		lock = self._lock(collection, key, ref)
-		# If ref was passed, ensure that the value has not changed.
-		# If ref was not passed, retrieve the current ref and store it.
-		journal_item = self._add_journal_item(collection, key, value)
-		response = self._client.get(collection, key, ref, False)
-		# Indicates a new record will be created.
-		if response.status_code == 404: 
-			pass
-		# Indicates an existing record will be updated so store the 
-		# original ref and value.
-		elif response.status_code == 200: 
-			journal_item.original_value = response.json
-			journal_item.original_ref = response.ref
-		else:
+		try:
+			lock = self._lock(collection, key, ref)
+			# If ref was passed, ensure that the value has not changed.
+			# If ref was not passed, retrieve the current ref and store it.
+			journal_item = self._add_journal_item(collection, key, value)
+			response = self._client.get(collection, key, ref, False)
+			# Indicates a new record will be created.
+			if response.status_code == 404: 
+				pass
+			# Indicates an existing record will be updated so store the 
+			# original ref and value.
+			elif response.status_code == 200: 
+				journal_item.original_value = response.json
+				journal_item.original_ref = response.ref
+			else:
+				response.raise_for_status()
+			response = self._client.put(collection, key, value, ref, False)
 			response.raise_for_status()
-		response = self._client.put(collection, key, value, ref, False)
-		response.raise_for_status()
-		# Store the new ref and value.
-		journal_item.new_value = value
-		journal_item.new_ref = response.ref
-		return response
+			# Store the new ref and value.
+			journal_item.new_value = value
+			journal_item.new_ref = response.ref
+			return response
+		except Exception as e:
+			self.roll_back(_format_exception(e))
+			raise e
 
-	def roll_back(self):
+	def roll_back(self, exception_causing_rollback = ''):
 		try: 
+			for journal_item in self._journal:
+				# Was a new value successfully set?
+				if journal_item.new_ref:
+					# Was there an original value?
+					if journal_item.original_ref:
+						# Put back the original value only if the new
+						# ref matches.
+						try: 
+							response = self._client.put(
+									   journal_item.collection,
+									   journal_item.key, 
+									   journal_item.original_value, 
+									   journal_item.new_ref, False)
+							response.raise_for_status()
+						except Exception as e:
+							# Ignore 412 error if the ref did not match.
+							if e.__class__.__name__ is "HTTPError":
+								pass
+							else:
+								raise e
+					# No original value indicates that a new record was 
+					# added and should be deleted.
+					else:
+						try:
+							response = self._client.delete(
+									   journal_item.collection,
+									   journal_item.key, 
+									   journal_item.new_ref, False)
+							response.raise_for_status()
+						except Exception as e:
+							# Ignore 412 error if the ref did not match.
+							if e.__class__.__name__ is "HTTPError":
+								pass
+							else:
+								raise e
 			self._remove_locks()
 			self._remove_jobs()
 			self.is_rolled_back = True
+			if exception_causing_rollback is not '':
+				raise RollbackCausedByException(exception_causing_rollback)		
+		except RollbackCausedByException as e:
+			raise e
 		except Exception as e:
-			raise FailedToRollBack('inner exception: ' + e.__class__.__name__)
+			self._is_failed = True			
+			all_exception_details = (_format_exception(e) + 
+									 exception_causing_rollback)
+			raise FailedToRollBack(all_exception_details)
 
 	def complete(self):
-		self.roll_back()
-		self._remove_locks()
-		self._remove_jobs()
-		self.is_completed = True
+		try: 
+			self._remove_locks()
+			self._remove_jobs()
+			self.is_completed = True
+		except Exception as e:
+			self._is_failed = True
+			raise FailedToComplete(_format_exception(e))
