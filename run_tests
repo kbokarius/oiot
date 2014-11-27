@@ -1,1 +1,2 @@
-python -m tests.oiot_tests
+python -m tests.client_tests
+python -m tests.job_tests

@@ -65,7 +65,7 @@ class JobIsCompleted(Exception):
 class JobIsRolledBack(Exception):
 	pass
 
-class JobTimedOut(Exception):
+class JobIsTimedOut(Exception):
 	pass
 
 from .client import OiotClient

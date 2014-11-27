@@ -3,7 +3,7 @@ from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 			  _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
 			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
 			  FailedToRollBack, _format_exception, RollbackCausedByException, \
-			  _max_job_time_in_ms, JobTimedOut
+			  _max_job_time_in_ms, JobIsTimedOut
 
 from datetime import datetime
 import json
@@ -33,7 +33,7 @@ class Job:
 		elapsed_milliseconds = (datetime.utcnow() - 
 								self._timestamp).microseconds / 1000.0
 		if elapsed_milliseconds > _max_job_time_in_ms:
-			raise JobTimedOut('Ran for ' + str(JobTimedOut) + 'ms')
+			raise JobIsTimedOut('Ran for ' + str(elapsed_milliseconds) + 'ms')
 
 	def _remove_locks(self):		
 		for lock in self._locks:
@@ -136,7 +136,8 @@ class Job:
 							response.raise_for_status()
 						except Exception as e:
 							# Ignore 412 error if the ref did not match.
-							if e.__class__.__name__ is "HTTPError":
+							if (e.__class__.__name__ is 'HTTPError' and 
+									e.response.status_code == 412):
 								pass
 							else:
 								raise e
@@ -151,7 +152,8 @@ class Job:
 							response.raise_for_status()
 						except Exception as e:
 							# Ignore 412 error if the ref did not match.
-							if e.__class__.__name__ is "HTTPError":
+							if (e.__class__.__name__ is 'HTTPError' and
+									e.response.status_code == 412):
 								pass
 							else:
 								raise e
@@ -163,7 +165,7 @@ class Job:
 		except RollbackCausedByException as e:
 			raise e
 		except Exception as e:
-			self._is_failed = True			
+			self.is_failed = True			
 			all_exception_details = (_format_exception(e) + 
 									 exception_causing_rollback)
 			raise FailedToRollBack(all_exception_details)
@@ -174,5 +176,5 @@ class Job:
 			self._remove_jobs()
 			self.is_completed = True
 		except Exception as e:
-			self._is_failed = True
+			self.is_failed = True
 			raise FailedToComplete(_format_exception(e))
