@@ -87,8 +87,6 @@ class Job:
 		key = _generate_key()
 		return self.put(collection, key, value)
 
-	# TODO: Catch all exceptions - if one is caught, roll-back, and 
-	# raise a wrapped exception.
 	def put(self, collection, key, value, ref = None):	
 		self._verify_job_is_active()
 		try:
