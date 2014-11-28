@@ -1,4 +1,5 @@
 import os, sys, unittest, time
+from datetime import datetime
 from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 				 JobIsRolledBack, JobIsFailed, FailedToComplete, \
 				 FailedToRollBack, _locks_collection, _jobs_collection, \
@@ -30,7 +31,7 @@ class JobTests(unittest.TestCase):
 			_clear_test_collections(self._client)
 			# Sleep to give o.io time to delete the collections. Without this
 			# delay inconsistent results will be encountered.
-			time.sleep(3)
+			time.sleep(4)
 			_were_collections_cleared = True
 
 	def test_basic_job_completion(self):
@@ -38,12 +39,16 @@ class JobTests(unittest.TestCase):
 		job.complete() 
 		self.assertRaises(JobIsCompleted, job.post, None, None)
 		self.assertRaises(JobIsCompleted, job.put, None, None, None)
+		self.assertRaises(JobIsCompleted, job.complete)
+		self.assertRaises(JobIsCompleted, job.roll_back)
 
 	def test_basic_job_rollback(self):
 		job = _run_test_job1(self._client)
 		job.roll_back() 
 		self.assertRaises(JobIsRolledBack, job.post, None, None)
 		self.assertRaises(JobIsRolledBack, job.put, None, None, None)
+		self.assertRaises(JobIsRolledBack, job.complete)
+		self.assertRaises(JobIsRolledBack, job.roll_back)
 
 	def test_rollback_caused_by_exception(self):
 		job = Job(self._client)
@@ -67,6 +72,8 @@ class JobTests(unittest.TestCase):
 		job._client = self._client
 		self.assertRaises(JobIsFailed, job.post, None, None)
 		self.assertRaises(JobIsFailed, job.put, None, None, None)
+		self.assertRaises(JobIsFailed, job.complete)
+		self.assertRaises(JobIsFailed, job.roll_back)
 
 	def test_failed_rollback(self):
 		job = Job(self._client)
@@ -84,11 +91,11 @@ class JobTests(unittest.TestCase):
 	def test_job_timeout(self):
 		job = Job(self._client)
 		time.sleep(6)
-		#self.assertRaises(JobIsTimedOut, job.post, 'test2', {})
-		#self.assertRaises(JobIsTimedOut, job.put, 'test2', 
-		#				  _generate_key(), {})
-		#self.assertRaises(JobIsTimedOut, job.complete)
-		#self.assertRaises(JobIsTimedOut, job.roll_back)
+		self.assertRaises(JobIsTimedOut, job.post, 'test2', {})
+		self.assertRaises(JobIsTimedOut, job.put, 'test2', 
+						  _generate_key(), {})
+		self.assertRaises(JobIsTimedOut, job.complete)
+		self.assertRaises(JobIsTimedOut, job.roll_back)
 
 	# TODO: Add test for verifying a lock was created.
 	# TODO: Add test for verifying a lock was removed.

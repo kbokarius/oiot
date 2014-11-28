@@ -28,10 +28,11 @@ class Job:
 			raise JobIsCompleted
 		elif self.is_rolled_back:
 			raise JobIsRolledBack
+		self._verify_job_is_not_timed_out()
 
 	def _verify_job_is_not_timed_out(self):
 		elapsed_milliseconds = (datetime.utcnow() - 
-								self._timestamp).microseconds / 1000.0
+								self._timestamp).total_seconds() * 1000.0
 		if elapsed_milliseconds > _max_job_time_in_ms:
 			raise JobIsTimedOut('Ran for ' + str(elapsed_milliseconds) + 'ms')
 
@@ -118,6 +119,7 @@ class Job:
 			raise e
 
 	def roll_back(self, exception_causing_rollback = ''):
+		self._verify_job_is_active()
 		try: 
 			for journal_item in self._journal:
 				self._verify_job_is_not_timed_out()
@@ -171,6 +173,7 @@ class Job:
 			raise FailedToRollBack(all_exception_details)
 
 	def complete(self):
+		self._verify_job_is_active()
 		try: 
 			self._remove_locks()
 			self._remove_jobs()
