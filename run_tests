@@ -1,2 +1,3 @@
 python -m tests.client_tests
 python -m tests.job_tests
+python -m tests.curator_tests

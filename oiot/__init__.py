@@ -3,6 +3,7 @@ import json, random, string, datetime
 
 _locks_collection = 'oiot-locks'
 _jobs_collection = 'oiot-jobs'
+_curators_collection = 'oiot-Curators'
 _max_job_time_in_ms = 5000
 
 def _generate_key():
@@ -70,3 +71,4 @@ class JobIsTimedOut(Exception):
 
 from .client import OiotClient
 from .job import Job
+from .curator import Curator
