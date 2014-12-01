@@ -57,6 +57,7 @@ class Job:
 			if lock.collection == collection and lock.key == key:
 				return lock
 		self._verify_job_is_not_timed_out()
+		# TODO: Use constructor to set values.
 		lock = _Lock()
 		lock.job_id = self._job_id
 		lock.timestamp = datetime.utcnow()
@@ -73,6 +74,7 @@ class Job:
 
 	def _add_journal_item(self, collection, key, value):
 		self._verify_job_is_not_timed_out()
+		# TODO: Use constructor to set values.
 		journal_item = _JournalItem()
 		journal_item.timestamp = datetime.utcnow()
 		journal_item.collection = collection

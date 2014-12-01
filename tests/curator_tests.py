@@ -26,15 +26,7 @@ class CuratorTests(unittest.TestCase):
 		self._curator_process.kill()
 
 	def test_everything(self):
-		job = Job(self._client)
-
-		response = job.post('test1', {})
-		self.assertRaises(CollectionKeyIsLocked, self._client.put, 'test1', 
-				response.key, {})
-		self.assertRaises(CollectionKeyIsLocked, self._client.get,
-				'test1', response.key)
-		self.assertRaises(CollectionKeyIsLocked, self._client.delete, 
-				'test1', response.key)
+		time.sleep(30)
 
 if __name__ == '__main__':
 	unittest.main()

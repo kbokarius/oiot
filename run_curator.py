@@ -15,4 +15,4 @@ if __name__ == '__main__':
 		except Exception as e:
 			# TODO: Log exception.
 			print('Caught: ' + str(e) + ': ' + traceback.format_exc(sys.exc_info()))
-			time.sleep(5)
+			time.sleep(3)
