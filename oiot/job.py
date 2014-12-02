@@ -57,12 +57,8 @@ class Job:
 			if lock.collection == collection and lock.key == key:
 				return lock
 		self._verify_job_is_not_timed_out()
-		# TODO: Use constructor to set values.
-		lock = _Lock()
-		lock.job_id = self._job_id
-		lock.timestamp = datetime.utcnow()
-		lock.collection = collection
-		lock.key = key
+		lock = _Lock(self._job_id, self._timestamp, datetime.utcnow(), 
+					 collection, key, None)
 		lock_response = self._client.put(_locks_collection, 
 						_get_lock_collection_key(collection, key), 
 						json.loads(json.dumps(vars(lock), cls=_Encoder)), 

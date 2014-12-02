@@ -22,12 +22,13 @@ class Curator(Client):
 		self._last_heartbeat_time = None
 		self._last_heartbeat_ref = None
 
-	def _remove_locks_and_job(self, job_id):
+	def _remove_locks(self, job_id):
 		pages = self._client.list(_locks_collection)
 		locks = pages.all()
 		for item in locks:
 			try:
 				lock = _Lock(item['value']['job_id'],
+							 item['value']['job_timestamp'],
 							 item['value']['timestamp'],
 							 item['value']['collection'],
 							 item['value']['key'],
@@ -42,6 +43,8 @@ class Curator(Client):
 			except Exception as e:
 				print('Caught while removing a lock associated with a job: ' +
 					  _format_exception(e))
+
+	def _remove_job(self, job_id):
 		try:
 			response = self._client.delete(_jobs_collection, job_id, 
 					   None, False)
@@ -133,6 +136,7 @@ class Curator(Client):
 				if ((datetime.utcnow() - dateutil.parser.parse(
 						job['value']['timestamp'])).total_seconds() * 1000.0 >
 						_max_job_time_in_ms + 1000):
+					was_something_curated = True
 					# Iterate on the journal items and roll back each one.
 					for item in job['value']['items']:
 						journal_item = _JournalItem(item['timestamp'],
@@ -142,14 +146,30 @@ class Curator(Client):
 						_roll_back_journal_item(self._client, journal_item)
 					# Remove all locks associated with the job
 					# and the job itself.
-					self._remove_locks_and_job(job['path']['key'])
-					was_something_curated = True
+					self._remove_locks(job['path']['key'])
+					self._remove_job(job['path']['key'])
 			# TODO: Change general exception catch to catch 
 			# specific exceptions.
 			except Exception as e:
 				print('Caught while processing a job: ' +
 					  _format_exception(e))
-		# TODO: Process locks.
+		pages = self._client.list(_locks_collection)
+		locks = pages.all()
+		for lock in locks:
+			try:
+				# Add a second to the max job time to mitigate the potential
+				# for race conditions.
+				if ((datetime.utcnow() - dateutil.parser.parse(
+						lock['value']['job_timestamp'])).total_seconds() * 1000.0 >
+						_max_job_time_in_ms + 1000):
+					was_something_curated = True
+					self._remove_locks(lock['value']['job_id'])
+					self._remove_job(lock['value']['job_id'])
+			# TODO: Change general exception catch to catch 
+			# specific exceptions.
+			except Exception as e:
+				print('Caught while processing a lock: ' +
+					  _format_exception(e))
 		return was_something_curated	
 
 	def run(self):

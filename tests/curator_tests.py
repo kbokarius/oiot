@@ -4,7 +4,7 @@ from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 				 FailedToRollBack, _locks_collection, _jobs_collection, \
 				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
 				 Job, _curator_heartbeat_timeout_in_ms, \
-				_curator_inactivity_delay_in_ms
+				_curator_inactivity_delay_in_ms, _get_lock_collection_key
 from . import _were_collections_cleared, _oio_api_key, \
 			  _verify_job_creation, _clear_test_collections, \
 			  _verify_lock_creation
@@ -29,7 +29,7 @@ class CuratorTests(unittest.TestCase):
 	def tearDown(self):
 		self._curator_process.kill()
 
-	def test_curation(self):		
+	def test_curation_of_timed_out_jobs(self):		
 		response3 = self._client.put('test3', 'test3-key-636',
 					{'value_key3': 'value_value3'})
 		response3.raise_for_status()
@@ -60,7 +60,34 @@ class CuratorTests(unittest.TestCase):
 				   None, False)
 		response.raise_for_status()
 		self.assertEqual({'value_key3': 'value_value3'}, response.json)
-		# TODO: Verify job and locks are removed.
+		response = self._client.get(_jobs_collection, job._job_id, 
+				   None, False)
+		self.assertEqual(response.status_code, 404)
+		for lock in job._locks:
+			if lock.job_id == job._job_id:
+				response = self._client.get(_locks_collection,
+						  _get_lock_collection_key(lock.collection,
+						  lock.key), None, False)
+				self.assertEqual(response.status_code, 404)
+
+	def test_curation_of_timed_out_locks(self):		
+		job = Job(self._client)
+		job._get_lock('test2', 'test2-key-736', None)
+		job._get_lock('test3', 'test3-key-736', None)
+		for lock in job._locks:
+			if lock.job_id == job._job_id:
+				response = self._client.get(_locks_collection,
+						  _get_lock_collection_key(lock.collection,
+						  lock.key), None, False)
+				response.raise_for_status()
+		time.sleep(3 + (_curator_inactivity_delay_in_ms / 1000.0) +
+				  (_curator_heartbeat_timeout_in_ms / 1000.0))
+		for lock in job._locks:
+			if lock.job_id == job._job_id:
+				response = self._client.get(_locks_collection,
+						  _get_lock_collection_key(lock.collection,
+						  lock.key), None, False)
+				self.assertEqual(response.status_code, 404)
 
 	# TODO: Test to make sure a record's whose new value does not match
 	# is not rolled-back. 

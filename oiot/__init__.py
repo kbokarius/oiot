@@ -88,9 +88,10 @@ class _ActiveCuratorDetails(object):
 		self.timestamp = timestamp
 
 class _Lock(object):
-	def __init__(self, job_id = None, timestamp = None, collection = None,
-				 key = None, lock_ref = None):
+	def __init__(self, job_id = None, job_timestamp = None, timestamp = None,
+				 collection = None, key = None, lock_ref = None):
 		self.job_id = job_id
+		self.job_timestamp = job_timestamp
 		self.timestamp = timestamp
 		self.collection = collection
 		self.key = key
