@@ -2,9 +2,12 @@ import os, sys, unittest, time
 from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 				 JobIsRolledBack, JobIsFailed, FailedToComplete, \
 				 FailedToRollBack, _locks_collection, _jobs_collection, \
-				 _generate_key, RollbackCausedByException, JobIsTimedOut
-
-from . import _were_collections_cleared, _oio_api_key, _clear_test_collections
+				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
+				 Job, _curator_heartbeat_timeout_in_ms, \
+				_curator_inactivity_delay_in_ms
+from . import _were_collections_cleared, _oio_api_key, \
+			  _verify_job_creation, _clear_test_collections, \
+			  _verify_lock_creation
 from subprocess import Popen
 
 class CuratorTests(unittest.TestCase):
@@ -20,13 +23,47 @@ class CuratorTests(unittest.TestCase):
 			# delay inconsistent results will be encountered.
 			time.sleep(4)
 			_were_collections_cleared = True
-		self._curator_process = Popen(['python', 'run_curator.py', _oio_api_key])
+		self._curator_process = Popen(['python', 'run_curator.py', 
+								_oio_api_key])
 
 	def tearDown(self):
 		self._curator_process.kill()
 
-	def test_everything(self):
-		time.sleep(5)
+	def test_curation(self):		
+		response3 = self._client.put('test3', 'test3-key-636',
+					{'value_key3': 'value_value3'})
+		response3.raise_for_status()
+		response = self._client.get('test3', 'test3-key-636', 
+				   response3.ref, False)
+		response.raise_for_status()
+		self.assertEqual({'value_key3': 'value_value3'}, response.json)
+		job = Job(self._client)
+		response2 = job.post('test2', {'value_key2': 'value_value2'})
+		response2.raise_for_status()
+		response = self._client.get('test2', response2.key,
+				   response2.ref, False)
+		response.raise_for_status()
+		self.assertEqual({'value_key2': 'value_value2'}, response.json)
+		response3 = job.put('test3', 'test3-key-636',
+					{'value_newkey3': 'value_newvalue3'}, response3.ref)
+		response3.raise_for_status()
+		response = self._client.get('test3', 'test3-key-636', 
+				   response3.ref, False)
+		response.raise_for_status()
+		self.assertEqual({'value_newkey3': 'value_newvalue3'}, response.json)
+		time.sleep(3 + (_curator_inactivity_delay_in_ms / 1000.0) +
+				  (_curator_heartbeat_timeout_in_ms / 1000.0))
+		response = self._client.get('test2', response2.key,
+				   None, False)
+		self.assertEqual(response.status_code, 404)
+		response = self._client.get('test3', 'test3-key-636', 
+				   None, False)
+		response.raise_for_status()
+		self.assertEqual({'value_key3': 'value_value3'}, response.json)
+		# TODO: Verify job and locks are removed.
+
+	# TODO: Test to make sure a record's whose new value does not match
+	# is not rolled-back. 
 
 if __name__ == '__main__':
 	unittest.main()

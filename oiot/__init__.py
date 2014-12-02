@@ -30,6 +30,58 @@ def _format_exception(e):
 	return (str(e) + ': ' +
 		   traceback.format_exc(sys.exc_info()))
 
+def _roll_back_journal_item(client, journal_item):
+	# Don't attempt to roll-back if the original value and the
+	# new value are the same.
+	if journal_item.original_value == journal_item.new_value:
+		return
+	get_response = client.get(journal_item.collection,
+			   journal_item.key, None, False)
+	try: 
+		get_response.raise_for_status()
+	except Exception as e:
+		if (_get_httperror_status_code(e) == 404):
+			return
+		else:
+			raise e
+	# Don't attempt to roll-back if the new value does not match
+	# or if the record has been deleted.
+	if get_response.json != journal_item.new_value:
+		return
+	# Was there an original value?
+	if journal_item.original_value:
+		# Put back the original value only if the new
+		# value matches.
+		if get_response.json == journal_item.new_value:
+			try: 
+				put_response = client.put(
+						   journal_item.collection,
+						   journal_item.key, 
+						   journal_item.original_value, 
+						   get_response.ref, False)
+				put_response.raise_for_status()
+			except Exception as e:
+				# Ignore 412 error if the ref did not match.
+				if (_get_httperror_status_code(e) == 412):
+					return
+				else:
+					raise e
+	# No original value indicates that a new record was 
+	# added and should be deleted.
+	else:
+		try:
+			delete_response = client.delete(
+					   journal_item.collection,
+					   journal_item.key, 
+					   get_response.ref, False)
+			delete_response.raise_for_status()
+		except Exception as e:
+			# Ignore 412 error if the ref did not match.
+			if (_get_httperror_status_code(e) == 412):
+				return
+			else:
+				raise e
+
 class _ActiveCuratorDetails(object):
 	def __init__(self, curator_id = None, timestamp = None):
 		self.curator_id = curator_id
@@ -46,15 +98,12 @@ class _Lock(object):
 
 class _JournalItem(object):
 	def __init__(self, timestamp = None, collection = None, key = None,
-				 original_value = None, original_ref = None, 
-				 new_value = None, new_ref = None):
+				 original_value = None, new_value = None):
 		self.timestamp = timestamp
 		self.collection = collection
 		self.key = key
 		self.original_value = original_value
-		self.original_ref = original_ref
 		self.new_value = new_value
-		self.new_ref = new_ref
 
 class _Encoder(json.JSONEncoder):
 	def default(self, obj):

@@ -23,7 +23,7 @@ class ClientTests(unittest.TestCase):
 		self.assertRaises(CollectionKeyIsLocked, self._client.delete, 
 				'test1', response.key)
 
-	# TODO: Ensure that all methods raise CollectionKeyIsLocked.
+	# TODO: Ensure that all applicable methods raise CollectionKeyIsLocked.
 
 if __name__ == '__main__':
 	unittest.main()

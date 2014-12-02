@@ -1,5 +1,4 @@
-from porc import Client
-from oiot import Curator
+from oiot import Curator, OiotClient
 import sys, time, traceback
 
 if __name__ == '__main__':
@@ -8,7 +7,7 @@ if __name__ == '__main__':
 		print('Error: specify the API key to use.')
 	while (True):
 		try:
-			client = Client(api_key)
+			client = OiotClient(api_key)
 			client.ping().raise_for_status()
 			curator = Curator(client)
 			curator.run()

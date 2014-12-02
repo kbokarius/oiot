@@ -6,7 +6,9 @@ from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
 				 _get_lock_collection_key, _get_httperror_status_code, \
 				 _jobs_collection
-from . import _were_collections_cleared, _oio_api_key, _clear_test_collections
+from . import _were_collections_cleared, _oio_api_key, \
+			  _verify_job_creation, _clear_test_collections, \
+			  _verify_lock_creation
 
 def _run_test_job1(client):
 	# Add a record without a job.
@@ -21,25 +23,6 @@ def _run_test_job1(client):
 	# job, thereby locking the very first record and journaling the work.
 	response3 = job.put('test1', response1.key, {'test2key': response2.key})
 	return job
-
-def _verify_job_creation(testinstance, job):
-	response = job._client.get(_jobs_collection, job._job_id,
-			   None, False)
-	response.raise_for_status()
-	testinstance.assertTrue((datetime.utcnow() - 
-					 dateutil.parser.parse(
-					 response.json['timestamp'])).
-					 total_seconds() < 2.0)
-	testinstance.assertTrue('items' in response.json)
-
-def _verify_lock_creation(testinstance, job, collection, key):
-	response = job._client.get(_locks_collection, 
-			   _get_lock_collection_key(collection, key), 
-			   None, False)
-	response.raise_for_status()
-	testinstance.assertEqual(response.json['job_id'], job._job_id)
-	testinstance.assertEqual(response.json['collection'], collection)
-	testinstance.assertEqual(response.json['key'], key)
 
 class JobTests(unittest.TestCase):
 	def setUp(self):
@@ -201,19 +184,13 @@ class JobTests(unittest.TestCase):
 		response.raise_for_status()
 		self.assertEqual({'value_newkey3': 'value_newvalue3'}, response.json)
 		job.roll_back()
-		was_404_error_caught = False
-		try:
-			response = self._client.get('test2', response2.key,
-					   None, False)
-			response.raise_for_status()
-		except Exception as e:
-			if _get_httperror_status_code(e) == 404:
-				was_404_error_caught = True
-		self.assertTrue(was_404_error_caught)
+		response = self._client.get('test2', response2.key,
+				   None, False)
+		self.assertEqual(response.status_code, 404)
 		response = self._client.get('test3', 'test3-key-636', 
 				   None, False)
 		response.raise_for_status()
-		self.assertEqual({'value_key3': 'value_value3'}, response.json)	
+		self.assertEqual({'value_key3': 'value_value3'}, response.json)		
 
 if __name__ == '__main__':
 	unittest.main()
