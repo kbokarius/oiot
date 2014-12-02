@@ -1,9 +1,11 @@
-import os, sys, unittest, time
+import os, sys, unittest, time, dateutil, json
 from datetime import datetime
 from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 				 JobIsRolledBack, JobIsFailed, FailedToComplete, \
 				 FailedToRollBack, _locks_collection, _jobs_collection, \
-				 _generate_key, RollbackCausedByException, JobIsTimedOut
+				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
+				 _get_lock_collection_key, _get_httperror_status_code, \
+				 _jobs_collection
 from . import _were_collections_cleared, _oio_api_key, _clear_test_collections
 
 def _run_test_job1(client):
@@ -17,8 +19,27 @@ def _run_test_job1(client):
 	response2 = job.post('test2', {'testvalue2_key' : 'testvalue2_value'})
 	# Update the very first record with the second record's key using the
 	# job, thereby locking the very first record and journaling the work.
-	response3 = job.put('test1', response1.key, { 'test2key': response2.key })
+	response3 = job.put('test1', response1.key, {'test2key': response2.key})
 	return job
+
+def _verify_job_creation(testinstance, job):
+	response = job._client.get(_jobs_collection, job._job_id,
+			   None, False)
+	response.raise_for_status()
+	testinstance.assertTrue((datetime.utcnow() - 
+					 dateutil.parser.parse(
+					 response.json['timestamp'])).
+					 total_seconds() < 2.0)
+	testinstance.assertTrue('items' in response.json)
+
+def _verify_lock_creation(testinstance, job, collection, key):
+	response = job._client.get(_locks_collection, 
+			   _get_lock_collection_key(collection, key), 
+			   None, False)
+	response.raise_for_status()
+	testinstance.assertEqual(response.json['job_id'], job._job_id)
+	testinstance.assertEqual(response.json['collection'], collection)
+	testinstance.assertEqual(response.json['key'], key)
 
 class JobTests(unittest.TestCase):
 	def setUp(self):
@@ -55,7 +76,7 @@ class JobTests(unittest.TestCase):
 		key = _generate_key()
 		response = self._client.put('test1', key, {})
 		response.raise_for_status()
-		response = job.put('test1', key, { 'value_testkey': 
+		response = job.put('test1', key, {'value_testkey': 
 				   'value_testvalue'})
 		self.assertRaises(RollbackCausedByException, job.put, 'test1', 
 						  key, None)
@@ -65,7 +86,7 @@ class JobTests(unittest.TestCase):
 		key = _generate_key()
 		response = self._client.put('test1', key, {})
 		response.raise_for_status()
-		response = job.put('test1', key, { 'value_testkey': 
+		response = job.put('test1', key, {'value_testkey': 
 				   'value_testvalue'})
 		job._client = None
 		self.assertRaises(FailedToComplete, job.complete)
@@ -80,7 +101,7 @@ class JobTests(unittest.TestCase):
 		key = _generate_key()
 		response = self._client.put('test1', key, {})
 		response.raise_for_status()
-		response = job.put('test1', key, { 'value_testkey': 
+		response = job.put('test1', key, {'value_testkey': 
 				   'value_testvalue'})
 		job._client = None
 		self.assertRaises(FailedToRollBack, job.roll_back)
@@ -97,12 +118,102 @@ class JobTests(unittest.TestCase):
 		self.assertRaises(JobIsTimedOut, job.complete)
 		self.assertRaises(JobIsTimedOut, job.roll_back)
 
-	# TODO: Add test for verifying a lock was created.
-	# TODO: Add test for verifying a lock was removed.
-	# TODO: Add test for verifying a job was created.
-	# TODO: Add test for verifying a job was removed.
-	# TODO: Verify that the operations are actually being written.
-	# TODO: Verify that the operations are actually being rolled back.
+	def test_job_and_lock_creation_and_removal(self):		
+		job = Job(self._client)
+		response2 = job.post('test2', {})
+		_verify_lock_creation(self, job, 'test2', response2.key)
+		_verify_job_creation(self, job)
+		response3 = job.put('test3', 'test3-key-535', {})
+		_verify_lock_creation(self, job, 'test3', 'test3-key-535')
+		job.complete()
+		was_404_error_caught = False
+		try:
+			_verify_lock_creation(self, job, 'test2', response2.key)
+		except Exception as e:
+			if _get_httperror_status_code(e) == 404:
+				was_404_error_caught = True
+		self.assertTrue(was_404_error_caught)
+		was_404_error_caught = False
+		try:
+			_verify_lock_creation(self, job, 'test3', 'test3-key-535')
+		except Exception as e:
+			if _get_httperror_status_code(e) == 404:
+				was_404_error_caught = True
+		self.assertTrue(was_404_error_caught)
+		was_404_error_caught = False
+		try:
+			_verify_job_creation(self, job)
+		except Exception as e:
+			if _get_httperror_status_code(e) == 404:
+				was_404_error_caught = True
+		self.assertTrue(was_404_error_caught)
+
+	def test_job_and_lock_creation_and_removal2(self):		
+		job = Job(self._client)
+		response2 = job.post('test2', {})
+		_verify_lock_creation(self, job, 'test2', response2.key)
+		_verify_job_creation(self, job)
+		response3 = job.put('test3', 'test3-key-536', {})
+		_verify_lock_creation(self, job, 'test3', 'test3-key-536')
+		job.roll_back()
+		was_404_error_caught = False
+		try:
+			_verify_lock_creation(self, job, 'test2', response2.key)
+		except Exception as e:
+			if _get_httperror_status_code(e) == 404:
+				was_404_error_caught = True
+		self.assertTrue(was_404_error_caught)
+		was_404_error_caught = False
+		try:
+			_verify_lock_creation(self, job, 'test3', 'test3-key-536')
+		except Exception as e:
+			if _get_httperror_status_code(e) == 404:
+				was_404_error_caught = True
+		self.assertTrue(was_404_error_caught)
+		was_404_error_caught = False
+		try:
+			_verify_job_creation(self, job)
+		except Exception as e:
+			if _get_httperror_status_code(e) == 404:
+				was_404_error_caught = True
+		self.assertTrue(was_404_error_caught)
+
+	def test_verify_writes_and_roll_back(self):		
+		response3 = self._client.put('test3', 'test3-key-636',
+					{'value_key3': 'value_value3'})
+		response3.raise_for_status()
+		response = self._client.get('test3', 'test3-key-636', 
+				   response3.ref, False)
+		response.raise_for_status()
+		self.assertEqual({'value_key3': 'value_value3'}, response.json)
+		job = Job(self._client)
+		response2 = job.post('test2', {'value_key2': 'value_value2'})
+		response2.raise_for_status()
+		response = self._client.get('test2', response2.key,
+				   response2.ref, False)
+		response.raise_for_status()
+		self.assertEqual({'value_key2': 'value_value2'}, response.json)
+		response3 = job.put('test3', 'test3-key-636',
+					{'value_newkey3': 'value_newvalue3'}, response3.ref)
+		response3.raise_for_status()
+		response = self._client.get('test3', 'test3-key-636', 
+				   response3.ref, False)
+		response.raise_for_status()
+		self.assertEqual({'value_newkey3': 'value_newvalue3'}, response.json)
+		job.roll_back()
+		was_404_error_caught = False
+		try:
+			response = self._client.get('test2', response2.key,
+					   None, False)
+			response.raise_for_status()
+		except Exception as e:
+			if _get_httperror_status_code(e) == 404:
+				was_404_error_caught = True
+		self.assertTrue(was_404_error_caught)
+		response = self._client.get('test3', 'test3-key-636', 
+				   None, False)
+		response.raise_for_status()
+		self.assertEqual({'value_key3': 'value_value3'}, response.json)	
 
 if __name__ == '__main__':
 	unittest.main()

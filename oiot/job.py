@@ -140,8 +140,7 @@ class Job:
 							response.raise_for_status()
 						except Exception as e:
 							# Ignore 412 error if the ref did not match.
-							if (e.__class__.__name__ is 'HTTPError' and 
-									e.response.status_code == 412):
+							if (_get_httperror_status_code(e) == 412):
 								pass
 							else:
 								raise e
@@ -156,8 +155,7 @@ class Job:
 							response.raise_for_status()
 						except Exception as e:
 							# Ignore 412 error if the ref did not match.
-							if (e.__class__.__name__ is 'HTTPError' and
-									e.response.status_code == 412):
+							if (_get_httperror_status_code(e) == 412):
 								pass
 							else:
 								raise e

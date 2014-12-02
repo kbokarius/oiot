@@ -17,6 +17,12 @@ def _generate_key():
 def _get_lock_collection_key(collection_to_lock, key_to_lock):
 	return collection_to_lock + "-" + key_to_lock
 
+def _get_httperror_status_code(exception):
+	if exception.__class__.__name__ is 'HTTPError':
+		return exception.response.status_code
+	else:
+		return None
+
 # Required for maintaining tracebacks for wrapped exceptions for Python
 # 2.x / 3.x compatibility. 
 # NOTE: Must be called immediately after the exception is caught.

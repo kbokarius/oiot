@@ -35,8 +35,7 @@ class Curator(Client):
 			response.raise_for_status()
 		except Exception as e:
 			# A 412 error indicates that another curator has become active.
-			if (e.__class__.__name__ is 'HTTPError' and 
-					e.response.status_code == 412):
+			if (_get_httperror_status_code(e) == 412):
 				return False
 			else:
 				raise e
@@ -67,8 +66,7 @@ class Curator(Client):
 			response.raise_for_status()
 		except Exception as e:
 			# Indicates that no curator is active.
-			if (e.__class__.__name__ is 'HTTPError' and 
-					e.response.status_code == 404):
+			if (_get_httperror_status_code(e) == 404):
 				# Try to send a heartbeat and return the result indicating
 				# whether this curator instance has become active.
 				return self._try_send_heartbeat(True)
@@ -98,6 +96,6 @@ class Curator(Client):
 			if self._determine_active_status():
 				self._is_active = True
 				if self._curate() is False:
-					time.sleep(1)
+					time.sleep(_curator_heartbeat_interval_in_ms / 1000.0)
 			else:
 				self._make_inactive_and_sleep()
