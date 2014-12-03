@@ -42,4 +42,4 @@ except RollbackCausedByException, FailedToRollBack:
     job = Job(self._client)
     job.post(COLLECTION1, VALUE).raise_for_status()
     job.put(COLLECTION2, KEY, VALUE).raise_for_status()
-    job.roll_back() # removes the record in COLLECTION1 and reverts the record in COLLECTION2
+    job.roll_back() # removes the record in COLLECTION1,  reverts the record in COLLECTION2, and removes the locks
