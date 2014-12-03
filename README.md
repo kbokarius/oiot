@@ -23,7 +23,7 @@ job.complete() # completes the job and removes the locks
 
 # attempting to access a locked key using OiotClient raises CollectionKeyIsLocked
 job.put(COLLECTION2, KEY, VALUE).raise_for_status() # locks the specified key
-client.put(COLLECTION2, KEY, VALUE ).raise_for_status() # raises CollectionKeyIsLocked
+client.put(COLLECTION2, KEY, VALUE ) # raises CollectionKeyIsLocked
 
 # to ignore an existing lock set raise_if_locked to False when using the OiotClient instance:
 job.put(COLLECTION2, KEY, VALUE).raise_for_status() # locks the specified key
