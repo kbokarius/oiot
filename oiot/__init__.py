@@ -9,6 +9,7 @@ _curator_heartbeat_interval_in_ms = 500
 _curator_heartbeat_timeout_in_ms = 5000
 _curator_inactivity_delay_in_ms = 3000
 _max_job_time_in_ms = 5000
+_additional_timeout_wait_in_ms = 500
 
 def _generate_key():
 	return ''.join(random.choice(string.ascii_uppercase + string.digits) 
@@ -30,11 +31,12 @@ def _format_exception(e):
 	return (str(e) + ': ' +
 		   traceback.format_exc(sys.exc_info()))
 
-def _roll_back_journal_item(client, journal_item):
+def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
 	# Don't attempt to roll-back if the original value and the
 	# new value are the same.
 	if journal_item.original_value == journal_item.new_value:
 		return
+	raise_if_timed_out()
 	get_response = client.get(journal_item.collection,
 			   journal_item.key, None, False)
 	try: 
@@ -53,6 +55,7 @@ def _roll_back_journal_item(client, journal_item):
 		# Put back the original value only if the new
 		# value matches.
 		if get_response.json == journal_item.new_value:
+			raise_if_timed_out()
 			try: 
 				put_response = client.put(
 						   journal_item.collection,
@@ -69,6 +72,7 @@ def _roll_back_journal_item(client, journal_item):
 	# No original value indicates that a new record was 
 	# added and should be deleted.
 	else:
+		raise_if_timed_out()
 		try:
 			delete_response = client.delete(
 					   journal_item.collection,
@@ -138,6 +142,9 @@ class JobIsRolledBack(Exception):
 	pass
 
 class JobIsTimedOut(Exception):
+	pass
+
+class CuratorIsTimedOut(Exception):
 	pass
 
 from .client import OiotClient

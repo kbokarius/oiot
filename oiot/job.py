@@ -28,9 +28,9 @@ class Job:
 			raise JobIsCompleted
 		elif self.is_rolled_back:
 			raise JobIsRolledBack
-		self._verify_job_is_not_timed_out()
+		self._raise_if_job_is_timed_out()
 
-	def _verify_job_is_not_timed_out(self):
+	def _raise_if_job_is_timed_out(self):
 		elapsed_milliseconds = (datetime.utcnow() - 
 								self._timestamp).total_seconds() * 1000.0
 		if elapsed_milliseconds > _max_job_time_in_ms:
@@ -38,7 +38,7 @@ class Job:
 
 	def _remove_locks(self):		
 		for lock in self._locks:
-			self._verify_job_is_not_timed_out()
+			self._raise_if_job_is_timed_out()
 			response = self._client.delete(_locks_collection, 
 					   _get_lock_collection_key(lock.collection, lock.key), 
 					   lock.lock_ref, False)
@@ -46,7 +46,7 @@ class Job:
 		self._locks = []
 
 	def _remove_job(self):
-		self._verify_job_is_not_timed_out()
+		self._raise_if_job_is_timed_out()
 		response = self._client.delete(_jobs_collection, self._job_id, 
 				   None, False)
 		response.raise_for_status()
@@ -56,7 +56,7 @@ class Job:
 		for lock in self._locks:
 			if lock.collection == collection and lock.key == key:
 				return lock
-		self._verify_job_is_not_timed_out()
+		self._raise_if_job_is_timed_out()
 		lock = _Lock(self._job_id, self._timestamp, datetime.utcnow(), 
 					 collection, key, None)
 		lock_response = self._client.put(_locks_collection, 
@@ -69,7 +69,7 @@ class Job:
 		return lock
 
 	def _add_journal_item(self, collection, key, new_value, original_value):
-		self._verify_job_is_not_timed_out()		
+		self._raise_if_job_is_timed_out()		
 		journal_item = _JournalItem(datetime.utcnow(), collection, key,
 					   original_value, new_value)
 		self._journal.append(journal_item)
@@ -87,7 +87,7 @@ class Job:
 		self._verify_job_is_active()
 		try:
 			lock = self._get_lock(collection, key, ref)
-			self._verify_job_is_not_timed_out()
+			self._raise_if_job_is_timed_out()
 			# If ref was passed, ensure that the value has not changed.
 			# If ref was not passed, retrieve the current ref and store it.
 			response = self._client.get(collection, key, ref, False)
@@ -102,7 +102,7 @@ class Job:
 				response.raise_for_status()
 			journal_item = self._add_journal_item(collection, key,
 						   value, original_value)
-			self._verify_job_is_not_timed_out()
+			self._raise_if_job_is_timed_out()
 			response = self._client.put(collection, key, value, ref, False)
 			response.raise_for_status()
 			# Store the new ref and value.
@@ -116,8 +116,8 @@ class Job:
 		self._verify_job_is_active()
 		try:
 			for journal_item in self._journal:
-				self._verify_job_is_not_timed_out()
-				_roll_back_journal_item(self._client, journal_item)
+				_roll_back_journal_item(self._client, journal_item, 
+										self._raise_if_job_is_timed_out)
 			self._remove_locks()
 			self._remove_job()
 			self.is_rolled_back = True

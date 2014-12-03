@@ -91,6 +91,9 @@ class CuratorTests(unittest.TestCase):
 
 	# TODO: Test to make sure a record's whose new value does not match
 	# is not rolled-back. 
+	# TODO: Test to make sure only one curator is active at any given time.
+	# TODO: Add a stress-type tests that bangs on the system and simuates
+	# jobs breaking.
 
 if __name__ == '__main__':
 	unittest.main()

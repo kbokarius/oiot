@@ -6,7 +6,8 @@ from . import _locks_collection, _get_lock_collection_key, \
 			  _curator_heartbeat_interval_in_ms, _get_httperror_status_code, \
 			  _jobs_collection, _format_exception, _JournalItem, _Lock, \
 			  _max_job_time_in_ms, _roll_back_journal_item, \
-			  _locks_collection
+			  _locks_collection, _additional_timeout_wait_in_ms, \
+			  CuratorIsTimedOut
 
 # TODO: Log unexpected exceptions locally and to 'oiot-errors'
 
@@ -26,6 +27,7 @@ class Curator(Client):
 		pages = self._client.list(_locks_collection)
 		locks = pages.all()
 		for item in locks:
+			self._raise_if_curator_is_timed_out()
 			try:
 				lock = _Lock(item['value']['job_id'],
 							 item['value']['job_timestamp'],
@@ -45,6 +47,7 @@ class Curator(Client):
 					  _format_exception(e))
 
 	def _remove_job(self, job_id):
+		self._raise_if_curator_is_timed_out()
 		try:
 			response = self._client.delete(_jobs_collection, job_id, 
 					   None, False)
@@ -57,6 +60,11 @@ class Curator(Client):
 	def _make_inactive_and_sleep(self):
 		self._is_active = False
 		time.sleep(_curator_inactivity_delay_in_ms / 1000.0)
+
+	def _raise_if_curator_is_timed_out(self):
+		if ((datetime.utcnow() - self._last_heartbeat_time).
+				total_seconds() * 1000.0 > _curator_heartbeat_timeout_in_ms):
+			raise CuratorIsTimedOut
 
 	def _try_send_heartbeat(self, add_new_record = False):
 		last_ref_value = self._last_heartbeat_ref
@@ -96,7 +104,8 @@ class Curator(Client):
 			# Try to send a heartbeat and return the result indicating
 			# whether this curator instance should continue to curate.
 			return self._try_send_heartbeat()
-		# Check to see when the last active curator heartbeat was sent.
+		# If not active then check to see when the last active curator 
+		# heartbeat was sent.
 		response = self._client.get(_curators_collection,
 									_active_curator_key, None, False)
 		try:
@@ -116,9 +125,7 @@ class Curator(Client):
 		# try to become the active curator.
 		if ((datetime.utcnow() - active_curator_details.timestamp).
 				total_seconds() * 1000.0 > _curator_heartbeat_timeout_in_ms):
-			# Wait a second to mitigate the potential of a race condition
-			# between the last active curator instance and this instance.
-			time.sleep(1)
+			time.sleep(_additional_timeout_wait_in_ms / 1000.0)
 			self._last_heartbeat_ref = response.ref
 			self._last_heartbeat_time = active_curator_details.timestamp
 			return self._try_send_heartbeat()
@@ -131,11 +138,9 @@ class Curator(Client):
 		jobs = pages.all()
 		for job in jobs:
 			try:
-				# Add a second to the max job time to mitigate the potential
-				# for race conditions.
 				if ((datetime.utcnow() - dateutil.parser.parse(
 						job['value']['timestamp'])).total_seconds() * 1000.0 >
-						_max_job_time_in_ms + 1000):
+						_max_job_time_in_ms + _additional_timeout_wait_in_ms):
 					was_something_curated = True
 					# Iterate on the journal items and roll back each one.
 					for item in job['value']['items']:
@@ -143,11 +148,14 @@ class Curator(Client):
 									   item['collection'], item['key'],
 									   item['original_value'],
 									   item['new_value'])
-						_roll_back_journal_item(self._client, journal_item)
+						_roll_back_journal_item(self._client, journal_item,
+										self._raise_if_curator_is_timed_out)
 					# Remove all locks associated with the job
 					# and the job itself.
 					self._remove_locks(job['path']['key'])
 					self._remove_job(job['path']['key'])
+			except CuratorIsTimedOut:
+				raise
 			# TODO: Change general exception catch to catch 
 			# specific exceptions.
 			except Exception as e:
@@ -157,20 +165,26 @@ class Curator(Client):
 		locks = pages.all()
 		for lock in locks:
 			try:
-				# Add a second to the max job time to mitigate the potential
-				# for race conditions.
 				if ((datetime.utcnow() - dateutil.parser.parse(
-						lock['value']['job_timestamp'])).total_seconds() * 1000.0 >
-						_max_job_time_in_ms + 1000):
-					was_something_curated = True
-					self._remove_locks(lock['value']['job_id'])
-					self._remove_job(lock['value']['job_id'])
+						lock['value']['job_timestamp'])).total_seconds() * 
+						1000.0 > _max_job_time_in_ms + 
+						_additional_timeout_wait_in_ms):
+					self._raise_if_curator_is_timed_out()
+					response = self._client.get(_jobs_collection, 
+									 lock['value']['job_id'], None, False)
+					# Only remove job-less locks. Otherwise allow the job
+					# processing mechanism above to clean up the job.
+					if response.status_code == 404:
+						was_something_curated = True
+						self._remove_locks(lock['value']['job_id'])
+			except CuratorIsTimedOut:
+				raise
 			# TODO: Change general exception catch to catch 
 			# specific exceptions.
 			except Exception as e:
 				print('Caught while processing a lock: ' +
 					  _format_exception(e))
-		return was_something_curated	
+		return was_something_curated
 
 	def run(self):
 		while (True):
