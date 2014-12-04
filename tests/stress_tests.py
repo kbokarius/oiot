@@ -35,13 +35,13 @@ class StressTests(unittest.TestCase):
 		self._curator_sleep_time_multiplier = 1.5
 		self._curator_threads = {}
 		self._monitor_curator_threads_exception = None
-		global _were_collections_cleared
-		if _were_collections_cleared is not True:
-			_clear_test_collections(self._get_client())
-			# Sleep to give o.io time to delete the collections. Without this
-			# delay inconsistent results will be encountered.
-			time.sleep(4)
-			_were_collections_cleared = True
+		#global _were_collections_cleared
+		#if _were_collections_cleared is not True:
+		#	_clear_test_collections(self._get_client())
+		#	# Sleep to give o.io time to delete the collections. Without this
+		#	# delay inconsistent results will be encountered.
+		#	time.sleep(4)
+		#	_were_collections_cleared = True
 
 	def tearDown(self):
 		self._should_monitor_curator_threads = False

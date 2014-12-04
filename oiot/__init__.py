@@ -1,4 +1,4 @@
-import os, sys, traceback
+import os, sys, traceback, binascii
 import json, random, string, datetime, uuid
 
 _locks_collection = 'oiot-locks'
@@ -12,8 +12,7 @@ _max_job_time_in_ms = 5000
 _additional_timeout_wait_in_ms = 1000
 
 def _generate_key():
-	return ''.join(random.choice(string.ascii_uppercase + string.digits) 
-		   for _ in range(16))	
+	return binascii.b2a_hex(os.urandom(8))
 
 def _get_lock_collection_key(collection_to_lock, key_to_lock):
 	return collection_to_lock + "-" + key_to_lock
