@@ -138,7 +138,10 @@ class Curator(Client):
 		pages = self._client.list(_jobs_collection)
 		jobs = pages.all()
 		for job in jobs:
+			self._try_send_heartbeat()
 			try:
+				if job is None:
+					continue
 				if ((datetime.utcnow() - dateutil.parser.parse(
 						job['value']['timestamp'])).total_seconds() * 1000.0 >
 						_max_job_time_in_ms + _additional_timeout_wait_in_ms):
@@ -165,6 +168,7 @@ class Curator(Client):
 		pages = self._client.list(_locks_collection)
 		locks = pages.all()
 		for lock in locks:
+			self._try_send_heartbeat()
 			try:
 				if ((datetime.utcnow() - dateutil.parser.parse(
 						lock['value']['job_timestamp'])).total_seconds() * 

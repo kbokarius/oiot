@@ -6,10 +6,10 @@ _jobs_collection = 'oiot-jobs'
 _curators_collection = 'oiot-curators'
 _active_curator_key = 'active'
 _curator_heartbeat_interval_in_ms = 500
-_curator_heartbeat_timeout_in_ms = 5000
+_curator_heartbeat_timeout_in_ms = 10000
 _curator_inactivity_delay_in_ms = 3000
 _max_job_time_in_ms = 5000
-_additional_timeout_wait_in_ms = 500
+_additional_timeout_wait_in_ms = 1000
 
 def _generate_key():
 	return ''.join(random.choice(string.ascii_uppercase + string.digits) 

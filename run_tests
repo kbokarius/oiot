@@ -1,4 +1,3 @@
 python -m tests.curator_tests
-python -m tests.curator_concurrency_tests
 python -m tests.client_tests
 python -m tests.job_tests
