@@ -32,3 +32,12 @@ def _verify_lock_creation(testinstance, job, collection, key):
 	testinstance.assertEqual(response.json['collection'], collection)
 	testinstance.assertEqual(response.json['key'], key)
 
+from .curator_tests import run_test_curation_of_timed_out_jobs, \
+		run_test_curation_of_timed_out_locks, \
+		run_test_changed_records_are_not_rolled_back
+from .job_tests import run_test_basic_job_completion, \
+		run_test_basic_job_rollback, run_test_rollback_caused_by_exception, \
+		run_test_failed_completion, run_test_failed_rollback, \
+		run_test_job_timeout, run_test_job_and_lock_creation_and_removal, \
+		run_test_job_and_lock_creation_and_removal2, \
+		run_test_verify_writes_and_roll_back

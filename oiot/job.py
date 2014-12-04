@@ -110,7 +110,6 @@ class Job:
 			return response
 		except Exception as e:
 			self.roll_back(_format_exception(e))
-			raise e
 
 	def roll_back(self, exception_causing_rollback = ''):
 		self._verify_job_is_active()

@@ -22,6 +22,7 @@ class Curator(Client):
 		self._is_active = False
 		self._last_heartbeat_time = None
 		self._last_heartbeat_ref = None
+		self._should_continue_to_run = True
 
 	def _remove_locks(self, job_id):
 		pages = self._client.list(_locks_collection)
@@ -40,7 +41,7 @@ class Curator(Client):
 							  _get_lock_collection_key(lock.collection,
 							  lock.key), lock.lock_ref, False)
 					response.raise_for_status()
-			# TODO: Change general exception catch to catch 
+			# TODO: Change general exception catch to catch
 			# specific exceptions.
 			except Exception as e:
 				print('Caught while removing a lock associated with a job: ' +
@@ -49,7 +50,7 @@ class Curator(Client):
 	def _remove_job(self, job_id):
 		self._raise_if_curator_is_timed_out()
 		try:
-			response = self._client.delete(_jobs_collection, job_id, 
+			response = self._client.delete(_jobs_collection, job_id,
 					   None, False)
 			response.raise_for_status()
 		# TODO: Change general exception catch to catch 
@@ -187,7 +188,7 @@ class Curator(Client):
 		return was_something_curated
 
 	def run(self):
-		while (True):
+		while (self._should_continue_to_run):
 			if self._determine_active_status():
 				self._is_active = True
 				if self._curate() is False:
