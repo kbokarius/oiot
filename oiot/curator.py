@@ -87,6 +87,7 @@ class Curator(Client):
 			# A 412 error indicates that another curator has become active.
 			if (_get_httperror_status_code(e) == 412):
 				if self._is_active:
+					print('no longer active: ' + str(datetime.utcnow()) + ' : ' + str(self._last_heartbeat_time) + str(self._id))
 					raise CuratorNoLongerActive
 				return False
 			else:
@@ -98,6 +99,7 @@ class Curator(Client):
 		if ((datetime.utcnow() - self._last_heartbeat_time).
 				total_seconds() * 1000.0 > _curator_heartbeat_timeout_in_ms):
 			if self._is_active:
+				print('no longer active: ' + str(datetime.utcnow()) + ' : ' + str(self._last_heartbeat_time) + str(self._id))
 				raise CuratorNoLongerActive
 			return False
 			

@@ -40,4 +40,5 @@ from .job_tests import run_test_basic_job_completion, \
 		run_test_failed_completion, run_test_failed_rollback, \
 		run_test_job_timeout, run_test_job_and_lock_creation_and_removal, \
 		run_test_job_and_lock_creation_and_removal2, \
-		run_test_verify_writes_and_roll_back
+		run_test_verify_writes_and_roll_back, \
+		run_test_exception_raised_when_key_locked
