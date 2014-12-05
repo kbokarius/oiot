@@ -136,7 +136,7 @@ class CuratorTests(unittest.TestCase):
 		global _oio_api_key
 		self._client = OiotClient(_oio_api_key)
 		self._client.ping().raise_for_status()
-		self._curator_sleep_time_multiplier = 2
+		self._curator_sleep_time_multiplier = 2.5
 		global _were_collections_cleared
 		if _were_collections_cleared is not True:
 			_clear_test_collections(self._client)

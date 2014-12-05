@@ -66,7 +66,7 @@ class Curator(Client):
 		self._is_active = False
 		time.sleep(_curator_inactivity_delay_in_ms / 1000.0)
 
-	def _try_send_heartbeat(self, add_new_record=False, raise_if_failed=True):
+	def _try_send_heartbeat(self, add_new_record=False):
 		# If too little time has passed since the last heartbeat 
 		# then don't try to send another heartbeat.
 		if (self._is_active and (datetime.utcnow() - self._last_heartbeat_time).
@@ -75,10 +75,10 @@ class Curator(Client):
 		last_ref_value = self._last_heartbeat_ref
 		if add_new_record:
 			last_ref_value = False
-		active_curator_details = _ActiveCuratorDetails(self._id, 
-								 datetime.utcnow())	
-		response = self._client.put(_curators_collection, 
-				   _active_curator_key, 
+		active_curator_details = _ActiveCuratorDetails(self._id,
+								 datetime.utcnow())
+		response = self._client.put(_curators_collection,
+				   _active_curator_key,
 				   json.loads(json.dumps(vars(active_curator_details),
 				   cls=_Encoder)), last_ref_value, False)
 		try:
@@ -87,7 +87,7 @@ class Curator(Client):
 			# A 412 error indicates that another curator has become active.
 			if (_get_httperror_status_code(e) == 412):
 				print('no longer active: ' + str(datetime.utcnow()) + ' : ' + str(self._last_heartbeat_time) + str(self._id))
-				if raise_if_failed:
+				if self._is_active:
 					raise CuratorNoLongerActive
 				return False
 			else:
@@ -99,7 +99,10 @@ class Curator(Client):
 		if ((datetime.utcnow() - self._last_heartbeat_time).
 				total_seconds() * 1000.0 > _curator_heartbeat_timeout_in_ms):
 			print('no longer active: ' + str(datetime.utcnow()) + ' : ' + str(self._last_heartbeat_time) + str(self._id))
-			raise CuratorNoLongerActive
+			if self._is_active:
+				raise CuratorNoLongerActive
+			return False
+			
 		return True
 
 	# Determine whether this instance is the active curator instance.
@@ -107,7 +110,7 @@ class Curator(Client):
 		if self._is_active:
 			# Try to send a heartbeat and return the result indicating
 			# whether this curator instance should continue to curate.
-			return self._try_send_heartbeat(raise_if_failed=False)
+			return self._try_send_heartbeat()
 		# If not active then check to see when the last active curator 
 		# heartbeat was sent.
 		response = self._client.get(_curators_collection,
@@ -119,8 +122,7 @@ class Curator(Client):
 			if (_get_httperror_status_code(e) == 404):
 				# Try to send a heartbeat and return the result indicating
 				# whether this curator instance has become active.
-				return self._try_send_heartbeat(add_new_record=True,
-												raise_if_failed=False)
+				return self._try_send_heartbeat(add_new_record=True)
 			else:
 				raise e
 		active_curator_details = _ActiveCuratorDetails(
@@ -133,7 +135,7 @@ class Curator(Client):
 			time.sleep(_additional_timeout_wait_in_ms / 1000.0)
 			self._last_heartbeat_ref = response.ref
 			self._last_heartbeat_time = active_curator_details.timestamp
-			return self._try_send_heartbeat(raise_if_failed=False)
+			return self._try_send_heartbeat()
 		else:
 			return False
 
