@@ -70,6 +70,13 @@ class StressTests(unittest.TestCase):
 		except Exception as e:
 			self._curator_tests_thread_exception = _format_exception(e)
 
+	def _fail(self, failure_details):
+		self._should_run_curator_tests = False
+		self._should_run_job_tests = False
+		for thread in self._curator_threads:
+			self._curator_threads[thread]._should_continue_to_run = False
+		self.fail(failure_details)
+
 	def _run_job_tests(self, index):
 		try:
 			client = self._get_client()
@@ -117,11 +124,11 @@ class StressTests(unittest.TestCase):
 		while ((datetime.utcnow() - start_time).total_seconds() < 
 				self._minutes_to_run * 60.0):
 			if self._curator_thread_exception:
-				self.fail(self._curator_thread_exception)
+				self._fail(self._curator_thread_exception)
 			if self._curator_tests_thread_exception:
-				self.fail(self._curator_tests_thread_exception)
+				self._fail(self._curator_tests_thread_exception)
 			if self._job_tests_thread_exception:
-				self.fail(self._job_tests_thread_exception)
+				self._fail(self._job_tests_thread_exception)
 			time.sleep(5)
 		print 'turning off test threads'
 		self._should_run_curator_tests = False

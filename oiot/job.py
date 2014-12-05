@@ -4,7 +4,6 @@ from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
 			  FailedToRollBack, _format_exception, RollbackCausedByException, \
 			  _max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item
-
 from datetime import datetime
 import json
 

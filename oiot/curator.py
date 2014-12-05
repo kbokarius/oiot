@@ -29,6 +29,8 @@ class Curator(Client):
 		locks = pages.all()
 		for item in locks:
 			try:
+				if item is None:
+					continue
 				lock = _Lock(item['value']['job_id'],
 							 item['value']['job_timestamp'],
 							 item['value']['timestamp'],
@@ -44,7 +46,7 @@ class Curator(Client):
 			# TODO: Change general exception catch to catch
 			# specific exceptions.
 			except CuratorNoLongerActive:
-				raise e
+				raise
 			except Exception as e:
 				print('Caught while removing a lock associated with a job: ' +
 					  _format_exception(e))
@@ -96,7 +98,7 @@ class Curator(Client):
 		if ((datetime.utcnow() - self._last_heartbeat_time).
 				total_seconds() * 1000.0 > _curator_heartbeat_timeout_in_ms):
 			raise CuratorNoLongerActive
-		print 'active curator: ' + str(self._id)
+		print 'active curator: ' + str(datetime.utcnow()) + ' : ' + str(self._id)
 		return True
 
 	# Determine whether this instance is the active curator instance.
@@ -169,6 +171,8 @@ class Curator(Client):
 		locks = pages.all()
 		for lock in locks:
 			try:
+				if lock is None:
+					continue
 				if ((datetime.utcnow() - dateutil.parser.parse(
 						lock['value']['job_timestamp'])).total_seconds() * 
 						1000.0 > _max_job_time_in_ms + 
@@ -195,9 +199,12 @@ class Curator(Client):
 
 	def run(self):
 		while (self._should_continue_to_run):
-			if self._determine_active_status():
-				self._is_active = True
-				if self._curate() is False:
-					time.sleep(_curator_heartbeat_interval_in_ms / 1000.0)
-			else:
-				self._make_inactive_and_sleep()
+			try:
+				if self._determine_active_status():
+					self._is_active = True
+					if self._curate() is False:
+						time.sleep(_curator_heartbeat_interval_in_ms / 2.0 / 1000.0)
+					continue
+			except CuratorNoLongerActive:
+				pass
+			self._make_inactive_and_sleep()
