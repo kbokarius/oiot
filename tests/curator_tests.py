@@ -4,8 +4,8 @@ from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 				 FailedToRollBack, _locks_collection, _jobs_collection, \
 				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
 				 Job, _curator_heartbeat_timeout_in_ms, \
-				_curator_inactivity_delay_in_ms, _get_lock_collection_key, \
-				Curator, _generate_key
+				 _additional_timeout_wait_in_ms, _get_lock_collection_key, \
+				 Curator, _generate_key, _max_job_time_in_ms
 from . import _were_collections_cleared, _oio_api_key, \
 			  _verify_job_creation, _clear_test_collections, \
 			  _verify_lock_creation
@@ -34,10 +34,10 @@ def run_test_curation_of_timed_out_jobs(client, test_instance):
 	response = client.get('test3', test3_key, 
 			   response3.ref, False)
 	response.raise_for_status()
-	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, response.json)
-	time.sleep(((_curator_inactivity_delay_in_ms / 1000.0) +
-			  (_curator_heartbeat_timeout_in_ms / 1000.0)) *
-			  test_instance._curator_sleep_time_multiplier)
+	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'},
+							  response.json)
+	time.sleep(((_max_job_time_in_ms + _additional_timeout_wait_in_ms)
+				 / 1000.0) * test_instance._curator_sleep_time_multiplier)
 	response = client.get('test2', response2.key,
 			   None, False)
 	test_instance.assertEqual(response.status_code, 404)
@@ -67,9 +67,8 @@ def run_test_curation_of_timed_out_locks(client, test_instance):
 					  _get_lock_collection_key(lock.collection,
 					  lock.key), None, False)
 			response.raise_for_status()
-	time.sleep(((_curator_inactivity_delay_in_ms / 1000.0) +
-			  (_curator_heartbeat_timeout_in_ms / 1000.0)) *
-			  test_instance._curator_sleep_time_multiplier)
+	time.sleep(((_max_job_time_in_ms + _additional_timeout_wait_in_ms)
+				 / 1000.0) * test_instance._curator_sleep_time_multiplier)
 	for lock in job._locks:
 		if lock.job_id == job._job_id:
 			response = client.get(_locks_collection,
@@ -103,14 +102,14 @@ def run_test_changed_records_are_not_rolled_back(client, test_instance):
 	response = client.get('test3', test3_key, 
 			   response3.ref, False)
 	response.raise_for_status()
-	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, response.json)
+	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'},
+							   response.json)
 	response3 = client.put('test3', test3_key,
 				{'value_changedkey3': 'value_changedvalue3'},
 				response3.ref, False)
 	response3.raise_for_status()
-	time.sleep(((_curator_inactivity_delay_in_ms / 1000.0) +
-			  (_curator_heartbeat_timeout_in_ms / 1000.0)) *
-			  test_instance._curator_sleep_time_multiplier)
+	time.sleep(((_max_job_time_in_ms + _additional_timeout_wait_in_ms)
+				 / 1000.0) * test_instance._curator_sleep_time_multiplier)
 	response = client.get('test2', response2.key,
 			   None, False)
 	response.raise_for_status()
@@ -137,7 +136,7 @@ class CuratorTests(unittest.TestCase):
 		global _oio_api_key
 		self._client = OiotClient(_oio_api_key)
 		self._client.ping().raise_for_status()
-		self._curator_sleep_time_multiplier = 1.5
+		self._curator_sleep_time_multiplier = 2
 		global _were_collections_cleared
 		if _were_collections_cleared is not True:
 			_clear_test_collections(self._client)
