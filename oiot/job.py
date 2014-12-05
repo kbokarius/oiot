@@ -3,7 +3,8 @@ from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 			  _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
 			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
 			  FailedToRollBack, _format_exception, RollbackCausedByException, \
-			  _max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item
+			  _max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item, \
+			  CollectionKeyIsLocked
 from datetime import datetime
 import json
 
@@ -61,7 +62,9 @@ class Job:
 		lock_response = self._client.put(_locks_collection, 
 						_get_lock_collection_key(collection, key), 
 						json.loads(json.dumps(vars(lock), cls=_Encoder)), 
-						None, False)
+						False, False)
+		if lock_response.status_code == 412:
+			raise CollectionKeyIsLocked
 		lock_response.raise_for_status()
 		self._locks.append(lock)
 		lock.lock_ref = lock_response.ref

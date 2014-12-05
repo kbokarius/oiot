@@ -181,6 +181,13 @@ def run_test_verify_writes_and_roll_back(client, test_instance):
 	response.raise_for_status()
 	test_instance.assertEqual({'value_key3': 'value_value3'}, response.json)
 
+def run_test_exception_raised_when_key_locked(client, test_instance):		
+	job = Job(client)
+	response2 = job.post('test2', {})	
+	job2 = Job(client)
+	test_instance.assertRaises(RollbackCausedByException, job2.put, 
+					 'test2', response2.key, {})
+
 class JobTests(unittest.TestCase):
 	def setUp(self):
 		# Verify o.io is up and the key is valid.
@@ -221,6 +228,9 @@ class JobTests(unittest.TestCase):
 
 	def test_verify_writes_and_roll_back(self):
 		run_test_verify_writes_and_roll_back(self._client, self)
+
+	def test_exception_raised_when_key_locked(self):
+		run_test_exception_raised_when_key_locked(self._client, self)
 
 if __name__ == '__main__':
 	unittest.main()
