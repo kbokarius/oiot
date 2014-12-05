@@ -104,8 +104,7 @@ class Job:
 			self._raise_if_job_is_timed_out()
 			response = self._client.put(collection, key, value, ref, False)
 			response.raise_for_status()
-			# Store the new ref and value.
-			journal_item.new_value = value
+			self._raise_if_job_is_timed_out()
 			return response
 		except Exception as e:
 			self.roll_back(_format_exception(e))
