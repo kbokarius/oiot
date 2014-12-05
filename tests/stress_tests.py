@@ -32,6 +32,7 @@ class StressTests(unittest.TestCase):
 		return client
 
 	def setUp(self):
+		self._minutes_to_run = 60
 		self._curator_sleep_time_multiplier = 3
 		self._curator_threads = {}
 		self._monitor_curator_threads_exception = None
@@ -75,28 +76,8 @@ class StressTests(unittest.TestCase):
 			run_test_verify_writes_and_roll_back(client, self)
 		self._finished_job_tests[index] = True
 
-	def _monitor_curator_threads(self):
-		try:
-			no_active_curator_timestamp = None
-			while (self._should_monitor_curator_threads):
-				active_curator = None
-				for thread in self._curator_threads:
-					if (self._curator_threads[thread]._is_active):
-						active_curator = self._curator_threads[thread]
-				if active_curator is not None:				
-					no_active_curator_timestamp = None	
-				elif (no_active_curator_timestamp is not None and 
-						active_curator == None):
-					self.assertTrue((datetime.utcnow() - 
-							no_active_curator_timestamp).total_seconds() < 
-							_curator_inactivity_delay_in_ms / 1000.0 * 3)
-				else:
-					no_active_curator_timestamp = datetime.utcnow()
-				time.sleep(0.05)
-		except Exception as e:
-			self._monitor_curator_threads_exception = _format_exception(e)
-
 	def test_one_curator_active_at_a_time(self):
+		start_time = datetime.utcnow()
 		client = self._get_client()
 		number_of_curators = 2
 		for index in range(number_of_curators):
@@ -116,40 +97,36 @@ class StressTests(unittest.TestCase):
 		self._finished_curator_tests = []
 		self._finished_job_tests = []
 		for index in range(number_of_curator_test_threads):
+			time.sleep(5)
 			self._finished_curator_tests.append(False)
 			threading.Thread(target = self._run_curator_tests, 
 							 args = (index,)).start()
 		for index in range(number_of_job_test_threads):
+			time.sleep(5)
 			self._finished_job_tests.append(False)
 			threading.Thread(target = self._run_job_tests, 
 							 args = (index,)).start()
-		index = 0
+		while ((datetime.utcnow() - start_time).total_seconds() < 
+				self._minutes_to_run * 60.0):
+			time.sleep(5)
+		print 'turning off test threads'
+		self._should_run_curator_tests = False
+		self._should_run_job_tests = False
+		print 'waiting for test threads to finished'			
+		all_test_group_threads_finished = False
+		while (all_test_group_threads_finished is False):
+			time.sleep(1)
+			all_test_group_threads_finished = True
+			for test_index in range(number_of_curator_test_threads):
+				if (self._finished_curator_tests[test_index]
+						is False):
+					all_test_group_threads_finished = False
+			for test_index in range(number_of_job_test_threads):
+				if (self._finished_job_tests[test_index] is False):
+					all_test_group_threads_finished = False
+		print 'test threads finished'
 		for thread in self._curator_threads:
-			if self._monitor_curator_threads_exception:
-				self.fail(self._monitor_curator_threads_exception)
-			time.sleep(_curator_inactivity_delay_in_ms / 1000.0 * 15)
-			if index == number_of_curators - 1:
-				print 'turning off test threads'
-				self._should_run_curator_tests = False
-				self._should_run_job_tests = False
-				print 'waiting for test threads to finished'			
-				all_test_group_threads_finished = False
-				while (all_test_group_threads_finished is False):
-					time.sleep(1)
-					all_test_group_threads_finished = True
-					for test_index in range(number_of_curator_test_threads):
-						if (self._finished_curator_tests[test_index]
-								is False):
-							all_test_group_threads_finished = False
-					for test_index in range(number_of_job_test_threads):
-						if (self._finished_job_tests[test_index] is False):
-							all_test_group_threads_finished = False
-				print 'test threads finished'
 			self._curator_threads[thread]._should_continue_to_run = False
-			self._curator_threads[thread]._is_active = False
-			print 'killed curator #' + str(index)
-			index += 1
-		self._should_monitor_curator_threads = False
 
 if __name__ == '__main__':
 	unittest.main()
