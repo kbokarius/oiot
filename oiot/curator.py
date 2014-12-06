@@ -151,9 +151,11 @@ class Curator(Client):
 					  _format_exception(e))
 		pages = self._client.list(_locks_collection)
 		locks = pages.all()
+		print 'scanning locks count: ' + str(len(locks))
 		for lock in locks:
 			try:
 				if lock is None:
+					print str(datetime.utcnow()) + ': lock is none out of ' + str(len(locks))
 					continue
 				is_lock_associated_with_removed_job = (lock['value']['job_id']
 						in self._removed_job_ids)
