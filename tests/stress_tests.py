@@ -33,8 +33,8 @@ class StressTests(unittest.TestCase):
 		self._minutes_to_run = 45
 		self._curator_sleep_time_multiplier = 8
 		self._number_of_curators = 0
-		self._number_of_curator_test_threads_threads = 15
-		self._number_of_job_test_threads = 4
+		self._number_of_curator_test_threads_threads = 18
+		self._number_of_job_test_threads = 2
 		self._curator_threads = {}
 		self._curator_thread_exception = None
 		self._curator_tests_thread_exception = None
@@ -114,12 +114,12 @@ class StressTests(unittest.TestCase):
 		self._finished_curator_tests = []
 		self._finished_job_tests = []
 		for index in range(self._number_of_curator_test_threads_threads):
-			time.sleep(10)
+			time.sleep(3)
 			self._finished_curator_tests.append(False)
 			threading.Thread(target = self._run_curator_tests, 
 							 args = (index,)).start()
 		for index in range(self._number_of_job_test_threads):
-			time.sleep(10)
+			time.sleep(3)
 			self._finished_job_tests.append(False)
 			threading.Thread(target = self._run_job_tests, 
 							 args = (index,)).start()

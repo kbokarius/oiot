@@ -23,35 +23,12 @@ class Curator(Client):
 		self._last_heartbeat_time = None
 		self._last_heartbeat_ref = None
 		self._should_continue_to_run = True
+		self._removed_job_ids = []
 
-	def _remove_locks(self, job_id):
-		pages = self._client.list(_locks_collection)
-		locks = pages.all()
-		print 'scanning locks count: ' + str(len(locks))
-		for item in locks:
-			try:
-				if item is None:
-					print str(datetime.utcnow()) + ': lock is none out of ' + str(len(locks))
-					continue
-				lock = _Lock(item['value']['job_id'],
-							 item['value']['job_timestamp'],
-							 item['value']['timestamp'],
-							 item['value']['collection'],
-							 item['value']['key'],
-							 item['value']['lock_ref'])
-				if lock.job_id == job_id:
-					self._try_send_heartbeat()
-					response = self._client.delete(_locks_collection,
-							  _get_lock_collection_key(lock.collection,
-							  lock.key), lock.lock_ref, False)
-					response.raise_for_status()
-			# TODO: Change general exception catch to catch
-			# specific exceptions.
-			except CuratorNoLongerActive:
-				raise
-			except Exception as e:
-				print('Caught while removing a lock associated with a job: ' +
-					  _format_exception(e))
+	def _append_to_removed_job_ids(self, job_id):
+		if len(self._removed_job_ids) > 1000:
+			self._removed_job_ids = self._removed_job_ids[:750]
+		self._removed_job_ids.append(job_id)
 
 	def _remove_job(self, job_id):
 		self._try_send_heartbeat()
@@ -163,10 +140,8 @@ class Curator(Client):
 									   item['new_value'])
 						_roll_back_journal_item(self._client, journal_item,
 												self._try_send_heartbeat)
-					# Remove all locks associated with the job
-					# and the job itself.
-					self._remove_locks(job['path']['key'])
 					self._remove_job(job['path']['key'])
+					self._append_to_removed_job_ids(job['path']['key'])
 			except CuratorNoLongerActive:
 				raise
 			# TODO: Change general exception catch to catch 
@@ -180,15 +155,19 @@ class Curator(Client):
 			try:
 				if lock is None:
 					continue
-				if ((datetime.utcnow() - dateutil.parser.parse(
+				is_lock_associated_with_removed_job = (lock['value']['job_id']
+						in self._removed_job_ids)
+				if (is_lock_associated_with_removed_job or 
+						(datetime.utcnow() - dateutil.parser.parse(
 						lock['value']['job_timestamp'])).total_seconds() * 
 						1000.0 > _max_job_time_in_ms + 
 						_additional_timeout_wait_in_ms):
-					response = self._client.get(_jobs_collection, 
-									 lock['value']['job_id'], None, False)
-					# Only remove job-less locks. Otherwise allow the job
-					# processing mechanism above to clean up the job.
-					if response.status_code == 404:
+					if is_lock_associated_with_removed_job is False:
+						response = self._client.get(_jobs_collection, 
+										 lock['value']['job_id'], None, False)
+						if response.status_code == 404:						
+							is_lock_associated_with_removed_job = True
+					if is_lock_associated_with_removed_job:
 						was_something_curated = True
 						self._try_send_heartbeat()
 						response = self._client.delete(_locks_collection,
