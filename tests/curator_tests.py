@@ -9,6 +9,7 @@ from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 from . import _were_collections_cleared, _oio_api_key, \
 			  _verify_job_creation, _clear_test_collections, \
 			  _verify_lock_creation
+from datetime import datetime
 from subprocess import Popen
 import threading
 
@@ -40,6 +41,10 @@ def run_test_curation_of_timed_out_jobs(client, test_instance):
 				 / 1000.0) * test_instance._curator_sleep_time_multiplier)
 	response = client.get('test2', response2.key,
 			   None, False)
+
+	if response.status_code != 404:
+		print str(datetime.utcnow()) + ' : ' + str(job._timestamp)
+
 	test_instance.assertEqual(response.status_code, 404)
 	response = client.get('test3', test3_key, 
 			   None, False)
@@ -122,6 +127,10 @@ def run_test_changed_records_are_not_rolled_back(client, test_instance):
 					 response.json)
 	response = client.get(_jobs_collection, job._job_id,
 			   None, False)
+
+	if response.status_code != 404:
+		print str(datetime.utcnow()) + ' : ' + str(job._timestamp)
+
 	test_instance.assertEqual(response.status_code, 404)
 	for lock in job._locks:
 		if lock.job_id == job._job_id:

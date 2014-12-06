@@ -30,6 +30,7 @@ class Curator(Client):
 		for item in locks:
 			try:
 				if item is None:
+					print str(datetime.utcnow()) + ': lock is none out of ' + str(len(locks))
 					continue
 				lock = _Lock(item['value']['job_id'],
 							 item['value']['job_timestamp'],
@@ -146,6 +147,7 @@ class Curator(Client):
 		for job in jobs:
 			try:
 				if job is None:
+					print str(datetime.utcnow()) + ': job is none out of ' + str(len(jobs))
 					continue
 				if ((datetime.utcnow() - dateutil.parser.parse(
 						job['value']['timestamp'])).total_seconds() * 1000.0 >
