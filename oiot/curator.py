@@ -27,6 +27,7 @@ class Curator(Client):
 	def _remove_locks(self, job_id):
 		pages = self._client.list(_locks_collection)
 		locks = pages.all()
+		print 'scanning locks count: ' + str(len(locks))
 		for item in locks:
 			try:
 				if item is None:
@@ -103,7 +104,7 @@ class Curator(Client):
 				print('no longer active: ' + str(datetime.utcnow()) + ' : ' + str(self._last_heartbeat_time) + str(self._id))
 				raise CuratorNoLongerActive
 			return False
-			
+		print('active: ' + str(datetime.utcnow()) + ' : ' + str(self._id))
 		return True
 
 	# Determine whether this instance is the active curator instance.
@@ -144,6 +145,7 @@ class Curator(Client):
 		was_something_curated = False
 		pages = self._client.list(_jobs_collection)
 		jobs = pages.all()
+		print 'scanning jobs count: ' + str(len(jobs))
 		for job in jobs:
 			try:
 				if job is None:
