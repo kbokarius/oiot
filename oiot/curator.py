@@ -10,6 +10,8 @@ from . import _locks_collection, _get_lock_collection_key, \
 			  CuratorNoLongerActive
 
 # TODO: Log unexpected exceptions locally and to 'oiot-errors'
+# TODO: What to do if a job or journal is corrupt and can't be rolled back?
+# TODO: What if a lock is corrupt and doesn't have a job ID?
 
 from datetime import datetime
 import dateutil.parser
@@ -29,17 +31,6 @@ class Curator(Client):
 		if len(self._removed_job_ids) > 1000:
 			self._removed_job_ids = self._removed_job_ids[:750]
 		self._removed_job_ids.append(job_id)
-
-	def _remove_job(self, job_id):
-		self._try_send_heartbeat()
-		try:
-			response = self._client.delete(_jobs_collection, job_id,
-					   None, False)
-			response.raise_for_status()
-		# TODO: Change general exception catch to catch 
-		# specific exceptions.
-		except Exception as e:
-			print('Caught while removing job: ' + _format_exception(e))
 
 	def _make_inactive_and_sleep(self):
 		self._is_active = False
@@ -66,7 +57,6 @@ class Curator(Client):
 			# A 412 error indicates that another curator has become active.
 			if (_get_httperror_status_code(e) == 412):
 				if self._is_active:
-					print('no longer active: ' + str(datetime.utcnow()) + ' : ' + str(self._last_heartbeat_time) + str(self._id))
 					raise CuratorNoLongerActive
 				return False
 			else:
@@ -78,10 +68,8 @@ class Curator(Client):
 		if ((datetime.utcnow() - self._last_heartbeat_time).
 				total_seconds() * 1000.0 > _curator_heartbeat_timeout_in_ms):
 			if self._is_active:
-				print('no longer active: ' + str(datetime.utcnow()) + ' : ' + str(self._last_heartbeat_time) + str(self._id))
 				raise CuratorNoLongerActive
 			return False
-		print('active: ' + str(datetime.utcnow()) + ' : ' + str(self._id))
 		return True
 
 	# Determine whether this instance is the active curator instance.
@@ -122,11 +110,9 @@ class Curator(Client):
 		was_something_curated = False
 		pages = self._client.list(_jobs_collection)
 		jobs = pages.all()
-		print 'scanning jobs count: ' + str(len(jobs))
 		for job in jobs:
 			try:
 				if job is None:
-					print str(datetime.utcnow()) + ': job is none out of ' + str(len(jobs))
 					continue
 				if ((datetime.utcnow() - dateutil.parser.parse(
 						job['value']['timestamp'])).total_seconds() * 1000.0 >
@@ -140,8 +126,11 @@ class Curator(Client):
 									   item['new_value'])
 						_roll_back_journal_item(self._client, journal_item,
 												self._try_send_heartbeat)
-					self._remove_job(job['path']['key'])
 					self._append_to_removed_job_ids(job['path']['key'])
+					self._try_send_heartbeat()
+					response = self._client.delete(_jobs_collection, 
+							   job['path']['key'], None, False)
+					response.raise_for_status()
 			except CuratorNoLongerActive:
 				raise
 			# TODO: Change general exception catch to catch 
@@ -151,11 +140,9 @@ class Curator(Client):
 					  _format_exception(e))
 		pages = self._client.list(_locks_collection)
 		locks = pages.all()
-		print 'scanning locks count: ' + str(len(locks))
 		for lock in locks:
 			try:
 				if lock is None:
-					print str(datetime.utcnow()) + ': lock is none out of ' + str(len(locks))
 					continue
 				is_lock_associated_with_removed_job = (lock['value']['job_id']
 						in self._removed_job_ids)

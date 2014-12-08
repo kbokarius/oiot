@@ -30,10 +30,11 @@ class StressTests(unittest.TestCase):
 		return client
 
 	def setUp(self):
-		self._minutes_to_run = 45
+		self._minutes_to_run = 10
+
 		self._curator_sleep_time_multiplier = 8
-		self._number_of_curators = 0
-		self._number_of_curator_test_threads_threads = 18
+		self._number_of_curators = 2
+		self._number_of_curator_test_threads_threads = 7
 		self._number_of_job_test_threads = 2
 		self._curator_threads = {}
 		self._curator_thread_exception = None
