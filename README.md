@@ -20,7 +20,7 @@ The sole purpose of a curator is to monitor the 'oiot-locks' and 'oiot-jobs' col
 
 ## Configuration
 
-The following settings are available in __init__.py for customizing oiot behavior:
+The following settings are available in \_\_init\_\_.py for customizing oiot behavior:
 
 ```python
 # collection name to use for the locks collection
