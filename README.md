@@ -8,11 +8,13 @@ The OiotClient class inherits from porc.Client and overrides the methods that ne
 
 ## Jobs
 
-Jobs utilize journaling and locking mechanisms where both mechanisms execute under the covers to ease consumption and use. All o.io operations executed within a job are automatically raised for status, and if an operation fails for any reason then the job is automatically rolled back and either RollbackCausedByException or FailedToRollBack is raised depending on whether the rollback was successful or failed. The RollbackCausedByException and FailedToRollBack custom exception classes include "exception_causing_rollback" and "stacktrace_causing_rollback" fields which contain the original exception and associated stacktrace that caused the automatic roll back. If the roll back method is called explicitly by the consumer and the roll back fails then the "exception_causing_rollback" and "stacktrace_causing_rollback" fields will be empty. The FailedToRollBack custom exception class also includes "exception_failing_rollback" and "stacktrace_failing_rollback" fields containing the exception and associated stacktrace that caused the roll back itself to fail. Note that if a roll back fails then the curator is expected to roll back the job and clean up. 
+Jobs utilize journaling and locking mechanisms where both mechanisms execute under the covers to ease consumption and use. All o.io operations executed within a job are automatically raised for status, and if an operation fails for any reason then the job is automatically rolled back and either RollbackCausedByException or FailedToRollBack is raised depending on whether the rollback was successful or failed.
 
-Once all operations are executed via a job instance then the complete() method should be called to indicate that the job is complete. Completing a job removes the job, the job's journal, and all locks associated with the job. If a job fails to complete for any reason then a FailedToComplete custom exception is thrown including "exception_failing_completion" "stacktrace_failing_completion" fields that contain the exception and stacktrace that caused the job completion to fail.
+The RollbackCausedByException and FailedToRollBack custom exception classes include exception_causing_rollback and stacktrace_causing_rollback fields which contain the original exception and associated stacktrace that caused the automatic roll back. If the roll back method is called explicitly by the consumer and the roll back fails then those two fields will be empty. The FailedToRollBack custom exception class also includes exception_failing_rollback and stacktrace_failing_rollback fields containing the exception and associated stacktrace that caused the roll back itself to fail. If a roll back fails then the curator is expected to roll back the job and clean up. 
 
-## Curator
+Once all operations are executed via a job instance then the complete() method should be called to indicate that the job is complete. Completing a job removes the job, the job's journal, and all locks associated with the job. If a job fails to complete for any reason then a FailedToComplete custom exception is thrown including exception_failing_completion and stacktrace_failing_completion fields that contain the exception and stacktrace that caused the job completion to fail.
+
+## Curators
 
 The sole purpose of a curator is to monitor the 'oiot-locks' and 'oiot-jobs' collections in o.io and curate any timed out transactions by rolling back the job's journal entries and deleting the job and its locks. Curator instances can be run across multiple machines and are designed to run in a one-active configuration where all curators compete to be the active curator and only one curator actively curates at any given time. The run_curator.py convenience script is available for running a curator instance as a service.
 
@@ -47,6 +49,7 @@ _max_job_time_in_ms = 5000
 
 # additional elapsed time used by active curators before rolling back jobs
 _additional_timeout_wait_in_ms = 1000
+```
 
 ## Usage
 
