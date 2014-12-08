@@ -1,8 +1,8 @@
-## Overview 
+# Overview 
 
 A tool to enable and facilitate transactions for Orchestrate.io (o.io). Consists of a Job class allowing for multiple o.io operations to be executed as an atomic transaction, an OiotClient class inherited from porc.Client that raises exceptions if an attempt is made to access a locked collection key, and a Curator class that's designed to run as a service and clean up broken transactions. 
 
-## OiotClient
+## Client
 
 The OiotClient class inherits from porc.Client and overrides the methods that need to check for existing locks for the specified collection keys prior to executing the corresponding operations. The methods currently overridden are put(), get(), and delete(). Note that "raise_if_locked=False" can be passed to these methods to ignore existing locks and revert to the standard porc.Client behavior. Since OiotClient not only provides the same methods as porc.Client but also maintains the same contracts, integrating oiot into an existing application is as easy as changing "client = porc.Client(API_KEY)" to "client = oiot.OiotClient(API_KEY)" and using the Job class whenever transactions are required.
 
@@ -53,6 +53,8 @@ _additional_timeout_wait_in_ms = 1000
 
 ## Usage
 
+Common oiot use cases are as follows:
+
 ```python
 from oiot import Job, OiotClient
 
@@ -84,7 +86,7 @@ try:
     job.post(COLLECTION1, VALUE).raise_for_status()
     job.put(COLLECTION2, KEY, VALUE).raise_for_status()
     job.complete()
-except RollbackCausedByException, FailedToRollBack: 
+except RollbackCausedByException, FailedToRollBack, FailedToComplete: 
     ...
 
 # to explicitly roll back a job use job.roll_back()
