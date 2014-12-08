@@ -31,7 +31,6 @@ class StressTests(unittest.TestCase):
 
 	def setUp(self):
 		self._minutes_to_run = 10
-
 		self._curator_sleep_time_multiplier = 8
 		self._number_of_curators = 2
 		self._number_of_curator_test_threads_threads = 7

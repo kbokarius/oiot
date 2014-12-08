@@ -123,13 +123,29 @@ class CollectionKeyIsLocked(Exception):
 	pass
 
 class FailedToComplete(Exception):
-	pass
+	def __init__(self, exception_failing_completion=None,
+				 stacktrace_failing_completion=None):
+		super(FailedToComplete, self).__init__()
+		self.exception_failing_completion = exception_failing_completion
+		self.stacktrace_failing_completion = stacktrace_failing_completion
 
 class FailedToRollBack(Exception):
-	pass
+	def __init__(self, exception_causing_rollback=None,
+				 stacktrace_causing_rollback=None,
+				 exception_failing_rollback=None,
+				 stacktrace_failing_rollback=None):
+		super(FailedToRollBack, self).__init__()
+		self.exception_causing_rollback = exception_causing_rollback
+		self.stacktrace_causing_rollback = stacktrace_causing_rollback
+		self.exception_failing_rollback = exception_failing_rollback
+		self.stacktrace_failing_rollback = stacktrace_failing_rollback
 
 class RollbackCausedByException(Exception):
-	pass
+	def __init__(self, exception_causing_rollback=None,
+				 stacktrace_causing_rollback=None):
+		super(RollbackCausedByException, self).__init__()
+		self.exception_causing_rollback = exception_causing_rollback
+		self.stacktrace_causing_rollback = stacktrace_causing_rollback
 
 class JobIsFailed(Exception):
 	pass

@@ -8,6 +8,9 @@ from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 from datetime import datetime
 import json
 
+# TODO: Add fields to the roll back exceptions to indicate what the original
+# exception and stack trace was.
+
 class Job:
 	def __init__(self, client):
 		self._job_id = _generate_key()
@@ -110,9 +113,9 @@ class Job:
 			self._raise_if_job_is_timed_out()
 			return response
 		except Exception as e:
-			self.roll_back(_format_exception(e))
+			self.roll_back((e, traceback.format_exc(sys.exc_info())))
 
-	def roll_back(self, exception_causing_rollback = ''):
+	def roll_back(self, exception_causing_rollback = None):
 		self._verify_job_is_active()
 		try:
 			for journal_item in self._journal:
@@ -121,15 +124,21 @@ class Job:
 			self._remove_locks()
 			self._remove_job()
 			self.is_rolled_back = True
-			if exception_causing_rollback is not '':
-				raise RollbackCausedByException(exception_causing_rollback)		
+			if exception_causing_rollback:
+				raise RollbackCausedByException(exception_causing_rollback[0],
+									   exception_causing_rollback[1])
 		except RollbackCausedByException as e:
 			raise e
 		except Exception as e:
 			self.is_failed = True			
-			all_exception_details = (_format_exception(e) + 
-									 exception_causing_rollback)
-			raise FailedToRollBack(all_exception_details)
+			if exception_causing_rollback:
+				raise FailedToRollBack(e, 
+									   traceback.format_exc(sys.exc_info()),
+									   exception_causing_rollback[0],
+									   exception_causing_rollback[1])
+			else:
+				raise FailedToRollBack(e, 
+									   traceback.format_exc(sys.exc_info()))
 
 	def complete(self):
 		self._verify_job_is_active()
@@ -139,4 +148,4 @@ class Job:
 			self.is_completed = True
 		except Exception as e:
 			self.is_failed = True
-			raise FailedToComplete(_format_exception(e))
+			raise FailedToComplete(e, traceback.format_exc(sys.exc_info()))

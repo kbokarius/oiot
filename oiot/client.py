@@ -1,7 +1,9 @@
 from porc import Client
 from . import _locks_collection, _get_lock_collection_key, CollectionKeyIsLocked
 
-# Inherit from the porc.Client class and override methods that should check for an existing lock prior to executing.
+# TODO: Address race condition between checking for a lock and executing the 
+# operation. Consider checking for a lock before and after the operation.
+
 class OiotClient(Client):
 	def __init__(self, api_key, custom_url = None, 
 				 use_async = False, **kwargs):
