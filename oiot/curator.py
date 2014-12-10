@@ -11,7 +11,6 @@ from . import _locks_collection, _get_lock_collection_key, \
 
 # TODO: Log unexpected exceptions locally and to 'oiot-errors'
 # TODO: What to do if a job or journal is corrupt and can't be rolled back?
-# TODO: What if a lock is corrupt and doesn't have a job ID?
 
 from datetime import datetime
 import dateutil.parser

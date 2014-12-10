@@ -3,10 +3,6 @@ from . import _locks_collection, _get_lock_collection_key, \
 			  CollectionKeyIsLocked, _create_and_add_lock
 from datetime import datetime
 
-# TODO: Add locks.
-# TODO: Add tests for locks.
-# TODO: Add stress tests for locks.
-
 class OiotClient(Client):
 	def __init__(self, api_key, custom_url = None, 
 				 use_async = False, **kwargs):
