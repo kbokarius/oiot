@@ -1,8 +1,11 @@
 from porc import Client
-from . import _locks_collection, _get_lock_collection_key, CollectionKeyIsLocked
+from . import _locks_collection, _get_lock_collection_key, \
+			  CollectionKeyIsLocked, _create_and_add_lock
+from datetime import datetime
 
-# TODO: Address race condition between checking for a lock and executing the 
-# operation. Lock key prior to working with it.
+# TODO: Add locks.
+# TODO: Add tests for locks.
+# TODO: Add stress tests for locks.
 
 class OiotClient(Client):
 	def __init__(self, api_key, custom_url = None, 
@@ -10,22 +13,48 @@ class OiotClient(Client):
 		super(self.__class__, self).__init__(api_key, custom_url = None, 
 											 use_async = False, **kwargs)
 
-	def _raise_if_locked(self, collection, key):
-		response = super(self.__class__, self).get(_locks_collection, _get_lock_collection_key(collection, key))
-		if response.status_code != 404:
-			raise CollectionKeyIsLocked
+	def _remove_lock(self, lock):
+		try:
+			# Ignore exceptions and do not raise for status.
+			# If necessary the curator will clean up the orphaned lock.
+			super(self.__class__, self).delete(_locks_collection, 
+					_get_lock_collection_key(lock.collection, lock.key), 
+					lock.lock_ref)
+		except:
+			raise
+			pass
+
+	def _lock_key_and_execute_operation(self, raise_if_locked, operation, *args):
+		lock = None
+		response = None
+		if raise_if_locked:	
+			lock = _create_and_add_lock(self, args[0], args[1], None,
+										datetime.utcnow())
+		try:
+			response = operation(*args)
+		except Exception:
+			if raise_if_locked:
+				self._remove_lock(lock)
+			raise
+		if raise_if_locked:
+			self._remove_lock(lock)
+		return response
 
 	def put(self, collection, key, value, ref = None, raise_if_locked = True):
-		if raise_if_locked:	
-			self._raise_if_locked(collection, key)
-		return super(self.__class__, self).put(collection, key, value, ref)	
+		return self._lock_key_and_execute_operation(raise_if_locked,
+										super(self.__class__, self).put,
+										collection, key, value, ref)
 
 	def get(self, collection, key, ref = None, raise_if_locked = True):
-		if raise_if_locked:	
-			self._raise_if_locked(collection, key)
-		return super(self.__class__, self).get(collection, key, ref)	
+		return self._lock_key_and_execute_operation(raise_if_locked,
+										super(self.__class__, self).get,
+										collection, key, ref)
 
-	def delete(self, collection, key = None, ref = None, raise_if_locked = True):
-		if key and raise_if_locked:
-			self._raise_if_locked(collection, key)
-		return super(self.__class__, self).delete(collection, key, ref)
+	def delete(self, collection, key = None, ref = None, 
+			   raise_if_locked = True):
+		# Deleting an entire collection does not lock the collection.
+		if key is None:
+			return super(self.__class__, self).delete(collection)
+		return self._lock_key_and_execute_operation(raise_if_locked,
+										super(self.__class__, self).delete,
+										collection, key, ref)
