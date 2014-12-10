@@ -16,7 +16,7 @@ from . import _were_collections_cleared, _oio_api_key, \
 			  run_test_failed_completion, run_test_failed_rollback, \
 			  run_test_job_and_lock_creation_and_removal, \
 			  run_test_job_and_lock_creation_and_removal2, \
-			  run_test_verify_writes_and_roll_back, \
+			  run_test_verify_operations_and_roll_back, \
 			  run_test_exception_raised_when_key_locked
 from subprocess import Popen
 from datetime import datetime
@@ -91,7 +91,7 @@ class StressTests(unittest.TestCase):
 				run_test_failed_rollback(client, self)		  
 				run_test_job_and_lock_creation_and_removal(client, self)
 				run_test_job_and_lock_creation_and_removal2(client, self)
-				run_test_verify_writes_and_roll_back(client, self)
+				run_test_verify_operations_and_roll_back(client, self)
 				run_test_exception_raised_when_key_locked(client, self)
 			self._finished_job_tests[index] = True
 		except Exception as e:

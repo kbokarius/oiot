@@ -4,7 +4,9 @@ from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
 			  FailedToRollBack, _format_exception, RollbackCausedByException, \
 			  _max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item, \
-			  CollectionKeyIsLocked
+			  CollectionKeyIsLocked, _deleted_object_value, \
+			  _create_and_add_lock
+
 from datetime import datetime
 import json
 
@@ -55,22 +57,14 @@ class Job:
 		response.raise_for_status()
 		self._journal = []
 
-	def _get_lock(self, collection, key, ref = None):
+	def _get_lock(self, collection, key):
 		for lock in self._locks:
 			if lock.collection == collection and lock.key == key:
 				return lock
 		self._raise_if_job_is_timed_out()
-		lock = _Lock(self._job_id, self._timestamp, datetime.utcnow(), 
-					 collection, key, None)
-		lock_response = self._client.put(_locks_collection, 
-						_get_lock_collection_key(collection, key), 
-						json.loads(json.dumps(vars(lock), cls=_Encoder)), 
-						False, False)
-		if lock_response.status_code == 412:
-			raise CollectionKeyIsLocked
-		lock_response.raise_for_status()
+		lock = _create_and_add_lock(self._client, collection, key,
+									self._job_id, self._timestamp)
 		self._locks.append(lock)
-		lock.lock_ref = lock_response.ref
 		return lock
 
 	def _add_journal_item(self, collection, key, new_value, original_value):
@@ -84,6 +78,18 @@ class Job:
 		job_response.raise_for_status()
 		return journal_item
 		
+	def get(self, collection, key, ref = None):	
+		self._verify_job_is_active()
+		try:
+			lock = self._get_lock(collection, key)
+			self._raise_if_job_is_timed_out()
+			response = self._client.get(collection, key, ref, False)
+			response.raise_for_status()
+			self._raise_if_job_is_timed_out()
+			return response
+		except Exception as e:
+			self.roll_back((e, traceback.format_exc(sys.exc_info())))
+
 	def post(self, collection, value):
 		key = _generate_key()
 		return self.put(collection, key, value)
@@ -91,7 +97,7 @@ class Job:
 	def put(self, collection, key, value, ref = None):	
 		self._verify_job_is_active()
 		try:
-			lock = self._get_lock(collection, key, ref)
+			lock = self._get_lock(collection, key)
 			self._raise_if_job_is_timed_out()
 			# If ref was passed, ensure that the value has not changed.
 			# If ref was not passed, retrieve the current ref and store it.
@@ -109,6 +115,25 @@ class Job:
 						   value, original_value)
 			self._raise_if_job_is_timed_out()
 			response = self._client.put(collection, key, value, ref, False)
+			response.raise_for_status()
+			self._raise_if_job_is_timed_out()
+			return response
+		except Exception as e:
+			self.roll_back((e, traceback.format_exc(sys.exc_info())))
+
+	def delete(self, collection, key, ref = None):	
+		self._verify_job_is_active()
+		try:
+			lock = self._get_lock(collection, key)
+			self._raise_if_job_is_timed_out()
+			# The record must be present in order to delete it.
+			response = self._client.get(collection, key, ref, False)
+			response.raise_for_status()
+			original_value = response.json
+			journal_item = self._add_journal_item(collection, key,
+						   _deleted_object_value, original_value)
+			self._raise_if_job_is_timed_out()
+			response = self._client.delete(collection, key, ref, False)
 			response.raise_for_status()
 			self._raise_if_job_is_timed_out()
 			return response

@@ -8,20 +8,35 @@ from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 				 _jobs_collection
 from . import _were_collections_cleared, _oio_api_key, \
 			  _verify_job_creation, _clear_test_collections, \
-			  _verify_lock_creation
+			  _verify_lock_creation, _verify_lock_deletion
+
+def verify_locked_exception_is_raised(test_instance, operation, *args):
+	try:
+		operation(*args)
+		test_instance.fail('RollbackCausedByException not raised')
+	except Exception as e:
+		test_instance.assertEqual(e.__class__.__name__, 
+								 'RollbackCausedByException')
+		test_instance.assertEqual(e.exception_causing_rollback.
+								  __class__.__name__, 
+								 'CollectionKeyIsLocked')
 
 def run_test_job1(client):
-	# Add a record without a job.
+	# Add records without a job.
 	response1 = client.post('test1', {'testvalue1_key' : 'testvalue1_value'})
 	response1.raise_for_status()
+	response3 = client.post('test3', {'testvalue3_key' : 'testvalue3_value'})
+	response3.raise_for_status()
 	# Create a new job.
 	job = Job(client)
 	# Add a record using the job thereby locking the record and journaling 
 	# the work.
 	response2 = job.post('test2', {'testvalue2_key' : 'testvalue2_value'})
+	job.get('test3', response3.key, response3.ref)
 	# Update the very first record with the second record's key using the
 	# job, thereby locking the very first record and journaling the work.
-	response3 = job.put('test1', response1.key, {'test2key': response2.key})
+	job.put('test1', response1.key, {'test2key': response2.key})
+	job.delete('test3', response3.key, response3.ref)
 	return job
 
 def run_test_basic_job_completion(client, test_instance):
@@ -87,7 +102,11 @@ def run_test_job_timeout(client, test_instance):
 	test_instance.assertRaises(JobIsTimedOut, job.complete)
 	test_instance.assertRaises(JobIsTimedOut, job.roll_back)
 
-def run_test_job_and_lock_creation_and_removal(client, test_instance):		
+def run_test_job_and_lock_creation_and_removal(client, test_instance):
+	response4 = client.post('test4', {'testvalue4_key' : 'testvalue4_value'})
+	response4.raise_for_status()	
+	response5 = client.post('test5', {'testvalue5_key' : 'testvalue5_value'})
+	response5.raise_for_status()		
 	job = Job(client)
 	response2 = job.post('test2', {})
 	_verify_lock_creation(test_instance, job, 'test2', response2.key)
@@ -95,21 +114,16 @@ def run_test_job_and_lock_creation_and_removal(client, test_instance):
 	test3_key = _generate_key()
 	response3 = job.put('test3', test3_key, {})
 	_verify_lock_creation(test_instance, job, 'test3', test3_key)
+	job.get('test4', response4.key, response4.ref)
+	_verify_lock_creation(test_instance, job, 'test4', response4.key)
+	job.delete('test5', response5.key, response5.ref)
+	_verify_lock_creation(test_instance, job, 'test5', response5.key)
 	job.complete()
 	was_404_error_caught = False
-	try:
-		_verify_lock_creation(test_instance, job, 'test2', response2.key)
-	except Exception as e:
-		if _get_httperror_status_code(e) == 404:
-			was_404_error_caught = True
-	test_instance.assertTrue(was_404_error_caught)
-	was_404_error_caught = False
-	try:
-		_verify_lock_creation(test_instance, job, 'test3', test3_key)
-	except Exception as e:
-		if _get_httperror_status_code(e) == 404:
-			was_404_error_caught = True
-	test_instance.assertTrue(was_404_error_caught)
+	_verify_lock_deletion(test_instance, job, 'test2', response2.key)
+	_verify_lock_deletion(test_instance, job, 'test3', test3_key)
+	_verify_lock_deletion(test_instance, job, 'test4', response4.key)
+	_verify_lock_deletion(test_instance, job, 'test5', response5.key)
 	was_404_error_caught = False
 	try:
 		_verify_job_creation(test_instance, job)
@@ -118,7 +132,11 @@ def run_test_job_and_lock_creation_and_removal(client, test_instance):
 			was_404_error_caught = True
 	test_instance.assertTrue(was_404_error_caught)
 
-def run_test_job_and_lock_creation_and_removal2(client, test_instance):		
+def run_test_job_and_lock_creation_and_removal2(client, test_instance):	
+	response4 = client.post('test4', {'testvalue4_key' : 'testvalue4_value'})
+	response4.raise_for_status()	
+	response5 = client.post('test5', {'testvalue5_key' : 'testvalue5_value'})
+	response5.raise_for_status()	
 	job = Job(client)
 	response2 = job.post('test2', {})
 	_verify_lock_creation(test_instance, job, 'test2', response2.key)
@@ -126,21 +144,15 @@ def run_test_job_and_lock_creation_and_removal2(client, test_instance):
 	test3_key = _generate_key()
 	response3 = job.put('test3', test3_key, {})
 	_verify_lock_creation(test_instance, job, 'test3', test3_key)
+	job.get('test4', response4.key, response4.ref)
+	_verify_lock_creation(test_instance, job, 'test4', response4.key)
+	job.delete('test5', response5.key, response5.ref)
+	_verify_lock_creation(test_instance, job, 'test5', response5.key)
 	job.roll_back()
-	was_404_error_caught = False
-	try:
-		_verify_lock_creation(test_instance, job, 'test2', response2.key)
-	except Exception as e:
-		if _get_httperror_status_code(e) == 404:
-			was_404_error_caught = True
-	test_instance.assertTrue(was_404_error_caught)
-	was_404_error_caught = False
-	try:
-		_verify_lock_creation(test_instance, job, 'test3', test3_key)
-	except Exception as e:
-		if _get_httperror_status_code(e) == 404:
-			was_404_error_caught = True
-	test_instance.assertTrue(was_404_error_caught)
+	_verify_lock_deletion(test_instance, job, 'test2', response2.key)
+	_verify_lock_deletion(test_instance, job, 'test3', test3_key)
+	_verify_lock_deletion(test_instance, job, 'test4', response4.key)
+	_verify_lock_deletion(test_instance, job, 'test5', response5.key)
 	was_404_error_caught = False
 	try:
 		_verify_job_creation(test_instance, job)
@@ -149,7 +161,7 @@ def run_test_job_and_lock_creation_and_removal2(client, test_instance):
 			was_404_error_caught = True
 	test_instance.assertTrue(was_404_error_caught)
 
-def run_test_verify_writes_and_roll_back(client, test_instance):
+def run_test_verify_operations_and_roll_back(client, test_instance):
 	test3_key = _generate_key()
 	response3 = client.put('test3', test3_key,
 				{'value_key3': 'value_value3'})
@@ -171,7 +183,17 @@ def run_test_verify_writes_and_roll_back(client, test_instance):
 	response = client.get('test3', test3_key, 
 			   response3.ref, False)
 	response.raise_for_status()
-	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, response.json)
+	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, 
+							  response.json)
+	response = job.get('test3', test3_key, response3.ref)
+	response.raise_for_status()
+	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, 
+							  response.json)
+	response4 = client.post('test4', {'value_key4': 'value_value4'})
+	response4.raise_for_status()
+	job.delete('test4', response4.key)
+	response = client.get('test4', response4.key, response4.ref, False)
+	test_instance.assertEqual(response.status_code, 404)
 	job.roll_back()
 	response = client.get('test2', response2.key,
 			   None, False)
@@ -180,13 +202,20 @@ def run_test_verify_writes_and_roll_back(client, test_instance):
 			   None, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_key3': 'value_value3'}, response.json)
+	response = client.get('test4', response4.key, 
+			   None, False)
+	response.raise_for_status()
+	test_instance.assertEqual({'value_key4': 'value_value4'}, response.json)
 
 def run_test_exception_raised_when_key_locked(client, test_instance):		
 	job = Job(client)
 	response2 = job.post('test2', {})	
-	job2 = Job(client)
-	test_instance.assertRaises(RollbackCausedByException, job2.put, 
-					 'test2', response2.key, {})
+	verify_locked_exception_is_raised(test_instance, Job(client).put,
+									  'test2', response2.key, {})
+	verify_locked_exception_is_raised(test_instance, Job(client).get,
+									  'test2', response2.key)
+	verify_locked_exception_is_raised(test_instance, Job(client).delete,
+									  'test2', response2.key)
 
 class JobTests(unittest.TestCase):
 	def setUp(self):
@@ -203,6 +232,7 @@ class JobTests(unittest.TestCase):
 			_were_collections_cleared = True
 
 	def test_basic_job_completion(self):	
+		
 		run_test_basic_job_completion(self._client, self)
 
 	def test_basic_job_rollback(self):	
@@ -226,8 +256,8 @@ class JobTests(unittest.TestCase):
 	def test_job_and_lock_creation_and_removal2(self):
 		run_test_job_and_lock_creation_and_removal2(self._client, self)
 
-	def test_verify_writes_and_roll_back(self):
-		run_test_verify_writes_and_roll_back(self._client, self)
+	def test_verify_operations_and_roll_back(self):
+		run_test_verify_operations_and_roll_back(self._client, self)
 
 	def test_exception_raised_when_key_locked(self):
 		run_test_exception_raised_when_key_locked(self._client, self)

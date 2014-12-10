@@ -1,5 +1,6 @@
 import os, sys, traceback, binascii
 import json, random, string, datetime, uuid
+from datetime import datetime
 
 _locks_collection = 'oiot-locks'
 _jobs_collection = 'oiot-jobs'
@@ -10,6 +11,7 @@ _curator_heartbeat_timeout_in_ms = 7500
 _curator_inactivity_delay_in_ms = 3000
 _max_job_time_in_ms = 5000
 _additional_timeout_wait_in_ms = 1000
+_deleted_object_value = {"deleted": "{A0981677-7933-4A5C-A141-9B40E60BD411}"}
 
 def _generate_key():
 	return binascii.b2a_hex(os.urandom(8))
@@ -30,37 +32,60 @@ def _format_exception(e):
 	return (str(e) + ': ' +
 		   traceback.format_exc(sys.exc_info()))
 
+def _create_and_add_lock(client, collection, key, job_id, timestamp):
+	lock = _Lock(job_id, timestamp, datetime.utcnow(), 
+				 collection, key, None)
+	lock_response = client.put(_locks_collection, 
+					_get_lock_collection_key(collection, key), 
+					json.loads(json.dumps(vars(lock), cls=_Encoder)), 
+					False, False)
+	if lock_response.status_code == 412:
+		raise CollectionKeyIsLocked
+	lock_response.raise_for_status()
+	lock.lock_ref = lock_response.ref
+	return lock
+
 def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
 	# Don't attempt to roll-back if the original value and the
 	# new value are the same.
 	if journal_item.original_value == journal_item.new_value:
 		return
 	raise_if_timed_out()
+	was_objected_deleted = journal_item.new_value == _deleted_object_value
 	get_response = client.get(journal_item.collection,
 			   journal_item.key, None, False)
 	try: 
 		get_response.raise_for_status()
 	except Exception as e:
-		if (_get_httperror_status_code(e) == 404):
-			return
+		if _get_httperror_status_code(e) == 404:
+			if was_objected_deleted is False:
+				return
 		else:
 			raise e
 	# Don't attempt to roll-back if the new value does not match
-	# or if the record has been deleted.
-	if get_response.json != journal_item.new_value:
+	# unless the record was deleted by the job.
+	if (was_objected_deleted is False and
+			get_response.json != journal_item.new_value):
 		return
 	# Was there an original value?
 	if journal_item.original_value:
 		# Put back the original value only if the new
-		# value matches.
-		if get_response.json == journal_item.new_value:
+		# value matches or if the record was deleted by 
+		# the job.
+		if ((was_objected_deleted and
+				get_response.status_code == 404) or 
+				(was_objected_deleted is False and
+				get_response.json == journal_item.new_value)):
+			original_ref = False
+			if was_objected_deleted is False:
+				original_ref = get_response.ref
 			raise_if_timed_out()
 			try: 
 				put_response = client.put(
 						   journal_item.collection,
 						   journal_item.key, 
 						   journal_item.original_value, 
-						   get_response.ref, False)
+						   original_ref, False)
 				put_response.raise_for_status()
 			except Exception as e:
 				# Ignore 412 error if the ref did not match.
@@ -111,7 +136,7 @@ class _JournalItem(object):
 
 class _Encoder(json.JSONEncoder):
 	def default(self, obj):
-		if isinstance(obj, datetime.datetime):
+		if isinstance(obj, datetime):
 			return obj.isoformat()
 		elif isinstance(obj, _JournalItem):
 			return vars(obj)

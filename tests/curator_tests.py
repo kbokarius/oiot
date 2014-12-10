@@ -36,20 +36,23 @@ def run_test_curation_of_timed_out_jobs(client, test_instance):
 			   response3.ref, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'},
-							  response.json)
+							  response.json)	
+	response4 = client.post('test4', {'value_key4': 'value_value4'})
+	response4.raise_for_status()
+	response = job.delete('test4', response4.key)
+	response.raise_for_status()
+	response = client.get('test4', response4.key, None, False)
+	test_instance.assertEqual(response.status_code, 404)
 	time.sleep(((_max_job_time_in_ms + _additional_timeout_wait_in_ms)
 				 / 1000.0) * test_instance._curator_sleep_time_multiplier)
-	response = client.get('test2', response2.key,
-			   None, False)
-
-	if response.status_code != 404:
-		print str(datetime.utcnow()) + ' : ' + str(job._timestamp)
-
+	response = client.get('test2', response2.key, None, False)
 	test_instance.assertEqual(response.status_code, 404)
-	response = client.get('test3', test3_key, 
-			   None, False)
+	response = client.get('test3', test3_key, None, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_key3': 'value_value3'}, response.json)
+	response = client.get('test4', response4.key, None, False)
+	response.raise_for_status()
+	test_instance.assertEqual({'value_key4': 'value_value4'}, response.json)
 	response = client.get(_jobs_collection, job._job_id, 
 			   None, False)
 	test_instance.assertEqual(response.status_code, 404)
@@ -64,8 +67,8 @@ def run_test_curation_of_timed_out_locks(client, test_instance):
 	test2_key = _generate_key()
 	test3_key = _generate_key()
 	job = Job(client)
-	job._get_lock('test2', test2_key, None)
-	job._get_lock('test3', test3_key, None)
+	job._get_lock('test2', test2_key)
+	job._get_lock('test3', test3_key)
 	for lock in job._locks:
 		if lock.job_id == job._job_id:
 			response = client.get(_locks_collection,
@@ -113,24 +116,33 @@ def run_test_changed_records_are_not_rolled_back(client, test_instance):
 				{'value_changedkey3': 'value_changedvalue3'},
 				response3.ref, False)
 	response3.raise_for_status()
+	response4 = client.post('test4', {'value_key4': 'value_value4'})
+	response4.raise_for_status()
+	response = client.get('test4', response4.key, response4.ref, False)
+	response.raise_for_status()
+	test_instance.assertEqual({'value_key4': 'value_value4'},
+							   response.json)
+	response = job.delete('test4', response4.key)
+	response.raise_for_status()
+	response = client.put('test4', response4.key,
+						  {'value_newkey4': 'value_newvalue4'}, False, False)
+	response.raise_for_status
 	time.sleep(((_max_job_time_in_ms + _additional_timeout_wait_in_ms)
 				 / 1000.0) * test_instance._curator_sleep_time_multiplier)
-	response = client.get('test2', response2.key,
-			   None, False)
+	response = client.get('test2', response2.key, None, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_changedkey2': 'value_changedvalue2'},
 					 response.json)
-	response = client.get('test3', test3_key, 
-			   None, False)
+	response = client.get('test3', test3_key, None, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_changedkey3': 'value_changedvalue3'},
 					 response.json)
+	response = client.get('test4', response4.key, None, False)
+	response.raise_for_status()
+	test_instance.assertEqual({'value_newkey4': 'value_newvalue4'},
+					 response.json)
 	response = client.get(_jobs_collection, job._job_id,
 			   None, False)
-
-	if response.status_code != 404:
-		print str(datetime.utcnow()) + ' : ' + str(job._timestamp)
-
 	test_instance.assertEqual(response.status_code, 404)
 	for lock in job._locks:
 		if lock.job_id == job._job_id:

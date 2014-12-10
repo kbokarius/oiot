@@ -2,7 +2,7 @@ from porc import Client
 from . import _locks_collection, _get_lock_collection_key, CollectionKeyIsLocked
 
 # TODO: Address race condition between checking for a lock and executing the 
-# operation. Consider checking for a lock before and after the operation.
+# operation. Lock key prior to working with it.
 
 class OiotClient(Client):
 	def __init__(self, api_key, custom_url = None, 

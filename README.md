@@ -8,11 +8,13 @@ The OiotClient class inherits from porc.Client and overrides the methods that ne
 
 ## Jobs
 
-Jobs utilize journaling and locking mechanisms where both mechanisms execute under the covers to ease consumption and use. All o.io operations executed within a job are automatically raised for status, and if an operation fails for any reason then the job is automatically rolled back and either RollbackCausedByException or FailedToRollBack is raised depending on whether the rollback was successful or failed.
+Jobs utilize journaling and locking mechanisms where both mechanisms execute under the covers to ease consumption and use. Jobs currently support the get(), post(), put(), and delete() operations. Executing any of these operations through a job will result in the collection key being locked for the lifetime of the job. In order to finish a job it must be explicitly completed by calling the complete() method or explicitly rolled back by calling the roll-back() method. Jobs have a maximum lifetime determined by the _max_job_time_in_ms configuration setting and if that lifetime is exceeded at the time of an operation then the job will fail and automatically be rolled back.
 
-The RollbackCausedByException and FailedToRollBack custom exception classes include exception_causing_rollback and stacktrace_causing_rollback fields which contain the original exception and associated stacktrace that caused the automatic roll back. If the roll back method is called explicitly by the consumer and the roll back fails then those two fields will be empty. The FailedToRollBack custom exception class also includes exception_failing_rollback and stacktrace_failing_rollback fields containing the exception and associated stacktrace that caused the roll back itself to fail. If a roll back fails then the curator is expected to roll back the job and clean up. 
+Once all operations are executed via a job instance then the complete() method should be called to indicate that the job is complete. If a job fails to complete for any reason then a FailedToComplete custom exception is thrown including exception_failing_completion and stacktrace_failing_completion fields that contain the exception and stacktrace that caused the job completion to fail. Completing a job removes the job, the job's journal, and all locks associated with the job. 
 
-Once all operations are executed via a job instance then the complete() method should be called to indicate that the job is complete. Completing a job removes the job, the job's journal, and all locks associated with the job. If a job fails to complete for any reason then a FailedToComplete custom exception is thrown including exception_failing_completion and stacktrace_failing_completion fields that contain the exception and stacktrace that caused the job completion to fail.
+Explicit or automatic roll back of a job reverts the locked and modified objects back to their original value based on the job's journal. Any new objects added using the job will be deleted upon roll back, and any objects deleted using the job will be put back upon roll back. Rolling back a job also removes the job, the job's journal, and all locks associated with the job. 
+
+All o.io operations executed within a job are automatically raised for status, and if an operation fails for any reason then the job is automatically rolled back and either RollbackCausedByException or FailedToRollBack is raised depending on whether the rollback was successful or failed. The RollbackCausedByException and FailedToRollBack custom exception classes include exception_causing_rollback and stacktrace_causing_rollback fields which contain the original exception and associated stacktrace that caused the automatic roll back. If the roll back method is called explicitly by the consumer and the roll back fails then those two fields will be empty. The FailedToRollBack custom exception class also includes exception_failing_rollback and stacktrace_failing_rollback fields containing the exception and associated stacktrace that caused the roll back itself to fail. If a roll back fails then the curator is expected to roll back the job and clean up. 
 
 ## Curators
 
@@ -20,7 +22,7 @@ The sole purpose of a curator is to monitor the 'oiot-locks' and 'oiot-jobs' col
 
 ## Configuration
 
-The following settings are available in \_\_init\_\_.py for customizing oiot behavior:
+The following settings are available in \_\_init\_\_.py for configuring oiot behavior:
 
 ```python
 # collection name to use for the locks collection
@@ -49,6 +51,9 @@ _max_job_time_in_ms = 5000
 
 # additional elapsed time used by active curators before rolling back jobs
 _additional_timeout_wait_in_ms = 1000
+
+# value used by journal items to indicate that a delete operation was performed
+_deleted_object_value = {"deleted": "{A0981677-7933-4A5C-A141-9B40E60BD411}"}
 ```
 
 ## Usage
@@ -61,36 +66,44 @@ from oiot import Job, OiotClient
 # create an oiot client
 client = OiotClient(YOUR_API_KEY)
 
-# OiotClient provides all of the same functionality porc.Client and can be used as such
+# OiotClient provides all of the same functionality porc.Client and
+# can be used as such
 item = client.get(COLLECTION, KEY)
 item['was_modified'] = True
 client.put(item.collection, item.key, item.json, item.ref).raise_for_status()
 
 # when a transaction is required use Job
 job = Job(self._client)
-job.post(COLLECTION1, VALUE).raise_for_status() # locks the newly added key
-job.put(COLLECTION2, KEY, VALUE).raise_for_status() # locks the specified key
+job.post(COLLECTION1, VALUE) # locks the newly added key
+job.put(COLLECTION2, KEY, VALUE) # locks the specified key
+job.delete(COLLECTION3, KEY) # locks the specified key
+job.get(COLLECTION4, KEY) # locks the specified key
 job.complete() # completes the job and removes the locks
 
 # attempting to access a locked key using OiotClient raises CollectionKeyIsLocked
-job.put(COLLECTION2, KEY, VALUE).raise_for_status() # locks the specified key
-client.put(COLLECTION2, KEY, VALUE ) # raises CollectionKeyIsLocked
+job.put(COLLECTION2, KEY, VALUE) # locks the specified key
+client.put(COLLECTION2, KEY, VALUE) # raises CollectionKeyIsLocked
 
-# to ignore an existing lock set raise_if_locked to False when using the OiotClient instance:
-job.put(COLLECTION2, KEY, VALUE).raise_for_status() # locks the specified key
-client.put(COLLECTION2, KEY, VALUE, raise_if_locked=False).raise_for_status() # ignores the lock
+# to ignore an existing lock set raise_if_locked to False when using 
+# the OiotClient instance:
+job.put(COLLECTION2, KEY, VALUE) # locks the specified key
+client.put(COLLECTION2, KEY, VALUE, raise_if_locked=False) # ignores the lock
 
 # to handle all exceptions raised by a job
 try:
     job = Job(self._client)
-    job.post(COLLECTION1, VALUE).raise_for_status()
-    job.put(COLLECTION2, KEY, VALUE).raise_for_status()
+    job.post(COLLECTION1, VALUE)
+    job.put(COLLECTION2, KEY, VALUE)
     job.complete()
 except RollbackCausedByException, FailedToRollBack, FailedToComplete: 
     ...
 
 # to explicitly roll back a job use job.roll_back()
 job = Job(self._client)
-job.post(COLLECTION1, VALUE).raise_for_status()
-job.put(COLLECTION2, KEY, VALUE).raise_for_status()
-job.roll_back() # removes the record in COLLECTION1, reverts the record in COLLECTION2, and removes the locks
+job.post(COLLECTION1, VALUE)
+job.put(COLLECTION2, KEY, VALUE)
+job.delete(COLLECTION3, KEY) # locks the specified key
+# roll back removes the record from COLLECTION1, reverts the record in 
+# COLLECTION2, puts back the record in COLLECTION3, and removes the 
+# locks and the job
+job.roll_back()
