@@ -20,34 +20,34 @@ class ClientTests(unittest.TestCase):
 				_generate_key(), {}, None)
 		response.raise_for_status()
 		self._client.get('test1', response.key, None, 
-						 False).raise_for_status()
+				False).raise_for_status()
 		self.assertEqual(self._client.get(_locks_collection,
-						 _get_lock_collection_key(
-						 'test1', response.key), None, 
-						 False).status_code, 404)
+				_get_lock_collection_key(
+				'test1', response.key), None, 
+				False).status_code, 404)
 
 	def test_add_and_remove_lock(self):
 		key = _generate_key()
 		lock = _create_and_add_lock(self._client, 'test1', key, None,
-									datetime.utcnow())
+				datetime.utcnow())
 		self._client.get(_locks_collection, _get_lock_collection_key(
-						 'test1', key), None,
-						 False).raise_for_status()
+				'test1', key), None,
+				False).raise_for_status()
 		self._client._remove_lock(lock)
 		self.assertEqual(self._client.get(_locks_collection,
-						 _get_lock_collection_key(
-						 'test1', key), None,
-						 False).status_code, 404)
+				_get_lock_collection_key(
+				'test1', key), None,
+				False).status_code, 404)
 	
 	def test_ignore_locks(self):
 		job = Job(self._client)
 		response = job.post('test1', {})
 		self._client.put('test1', response.key, {}, None,
-						 False).raise_for_status()
+				False).raise_for_status()
 		self._client.get('test1', response.key, None, 
-						 False).raise_for_status()
+				False).raise_for_status()
 		self._client.delete('test1', response.key, None, 
-						 False).raise_for_status()
+				False).raise_for_status()
 
 	def test_collection_key_locked(self):
 		job = Job(self._client)

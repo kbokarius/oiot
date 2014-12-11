@@ -30,11 +30,11 @@ def _format_exception(e):
 
 def _create_and_add_lock(client, collection, key, job_id, timestamp):
 	lock = _Lock(job_id, timestamp, datetime.utcnow(), 
-				 collection, key, None)
+			collection, key, None)
 	lock_response = client.put(_locks_collection, 
-					_get_lock_collection_key(collection, key), 
-					json.loads(json.dumps(vars(lock), cls=_Encoder)), 
-					False, False)
+			_get_lock_collection_key(collection, key), 
+			json.loads(json.dumps(vars(lock), cls=_Encoder)), 
+			False, False)
 	if lock_response.status_code == 412:
 		raise CollectionKeyIsLocked
 	lock_response.raise_for_status()
@@ -49,7 +49,7 @@ def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
 	raise_if_timed_out()
 	was_objected_deleted = journal_item.new_value == _deleted_object_value
 	get_response = client.get(journal_item.collection,
-			   journal_item.key, None, False)
+			journal_item.key, None, False)
 	try: 
 		get_response.raise_for_status()
 	except Exception as e:
@@ -78,10 +78,10 @@ def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
 			raise_if_timed_out()
 			try: 
 				put_response = client.put(
-						   journal_item.collection,
-						   journal_item.key, 
-						   journal_item.original_value, 
-						   original_ref, False)
+						journal_item.collection,
+						journal_item.key, 
+						journal_item.original_value, 
+						original_ref, False)
 				put_response.raise_for_status()
 			except Exception as e:
 				# Ignore 412 error if the ref did not match.
@@ -95,9 +95,9 @@ def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
 		raise_if_timed_out()
 		try:
 			delete_response = client.delete(
-					   journal_item.collection,
-					   journal_item.key, 
-					   get_response.ref, False)
+					journal_item.collection,
+					journal_item.key, 
+					get_response.ref, False)
 			delete_response.raise_for_status()
 		except Exception as e:
 			# Ignore 412 error if the ref did not match.
@@ -113,7 +113,7 @@ class _ActiveCuratorDetails(object):
 
 class _Lock(object):
 	def __init__(self, job_id = None, job_timestamp = None, timestamp = None,
-				 collection = None, key = None, lock_ref = None):
+				collection = None, key = None, lock_ref = None):
 		self.job_id = job_id
 		self.job_timestamp = job_timestamp
 		self.timestamp = timestamp
@@ -123,7 +123,7 @@ class _Lock(object):
 
 class _JournalItem(object):
 	def __init__(self, timestamp = None, collection = None, key = None,
-				 original_value = None, new_value = None):
+				original_value = None, new_value = None):
 		self.timestamp = timestamp
 		self.collection = collection
 		self.key = key
@@ -145,16 +145,16 @@ class CollectionKeyIsLocked(Exception):
 
 class FailedToComplete(Exception):
 	def __init__(self, exception_failing_completion=None,
-				 stacktrace_failing_completion=None):
+				stacktrace_failing_completion=None):
 		super(FailedToComplete, self).__init__()
 		self.exception_failing_completion = exception_failing_completion
 		self.stacktrace_failing_completion = stacktrace_failing_completion
 
 class FailedToRollBack(Exception):
 	def __init__(self, exception_causing_rollback=None,
-				 stacktrace_causing_rollback=None,
-				 exception_failing_rollback=None,
-				 stacktrace_failing_rollback=None):
+				stacktrace_causing_rollback=None,
+				exception_failing_rollback=None,
+				stacktrace_failing_rollback=None):
 		super(FailedToRollBack, self).__init__()
 		self.exception_causing_rollback = exception_causing_rollback
 		self.stacktrace_causing_rollback = stacktrace_causing_rollback
@@ -163,7 +163,7 @@ class FailedToRollBack(Exception):
 
 class RollbackCausedByException(Exception):
 	def __init__(self, exception_causing_rollback=None,
-				 stacktrace_causing_rollback=None):
+				stacktrace_causing_rollback=None):
 		super(RollbackCausedByException, self).__init__()
 		self.exception_causing_rollback = exception_causing_rollback
 		self.stacktrace_causing_rollback = stacktrace_causing_rollback

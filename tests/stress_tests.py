@@ -1,23 +1,23 @@
 import os, sys, unittest, time
 from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
-				 JobIsRolledBack, JobIsFailed, FailedToComplete, \
-				 FailedToRollBack, _locks_collection, _jobs_collection, \
-				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
-				 Job, _curator_heartbeat_timeout_in_ms, \
-				_curator_inactivity_delay_in_ms, _get_lock_collection_key, \
-				Curator, _format_exception
+		JobIsRolledBack, JobIsFailed, FailedToComplete, \
+		FailedToRollBack, _locks_collection, _jobs_collection, \
+		_generate_key, RollbackCausedByException, JobIsTimedOut, \
+		Job, _curator_heartbeat_timeout_in_ms, \
+		_curator_inactivity_delay_in_ms, _get_lock_collection_key, \
+		Curator, _format_exception
 from . import _were_collections_cleared, _oio_api_key, \
-			  _verify_job_creation, _clear_test_collections, \
-			  _verify_lock_creation, run_test_curation_of_timed_out_jobs, \
-			  run_test_curation_of_timed_out_locks, run_test_job_timeout, \
-			  run_test_changed_records_are_not_rolled_back, \
-			  run_test_basic_job_completion, run_test_basic_job_rollback, \
-			  run_test_rollback_caused_by_exception, \
-			  run_test_failed_completion, run_test_failed_rollback, \
-			  run_test_job_and_lock_creation_and_removal, \
-			  run_test_job_and_lock_creation_and_removal2, \
-			  run_test_verify_operations_and_roll_back, \
-			  run_test_exception_raised_when_key_locked
+		_verify_job_creation, _clear_test_collections, \
+		_verify_lock_creation, run_test_curation_of_timed_out_jobs, \
+		run_test_curation_of_timed_out_locks, run_test_job_timeout, \
+		run_test_changed_records_are_not_rolled_back, \
+		run_test_basic_job_completion, run_test_basic_job_rollback, \
+		run_test_rollback_caused_by_exception, \
+		run_test_failed_completion, run_test_failed_rollback, \
+		run_test_job_and_lock_creation_and_removal, \
+		run_test_job_and_lock_creation_and_removal2, \
+		run_test_verify_operations_and_roll_back, \
+		run_test_exception_raised_when_key_locked
 from subprocess import Popen
 from datetime import datetime
 import threading
@@ -104,7 +104,7 @@ class StressTests(unittest.TestCase):
 			print('Starting curator...')
 			curator = Curator(client)
 			thread = threading.Thread(target = self.run_curator,
-					 args = (curator,))
+					args = (curator,))
 			thread.start()
 			self._curator_threads[thread] = curator
 		time.sleep((_curator_inactivity_delay_in_ms * 2) / 1000.0)
@@ -117,12 +117,12 @@ class StressTests(unittest.TestCase):
 			time.sleep(3)
 			self._finished_curator_tests.append(False)
 			threading.Thread(target = self._run_curator_tests, 
-							 args = (index,)).start()
+					args = (index,)).start()
 		for index in range(self._number_of_job_test_threads):
 			time.sleep(3)
 			self._finished_job_tests.append(False)
 			threading.Thread(target = self._run_job_tests, 
-							 args = (index,)).start()
+					args = (index,)).start()
 		while ((datetime.utcnow() - start_time).total_seconds() < 
 				self._minutes_to_run * 60.0):
 			if self._curator_thread_exception:

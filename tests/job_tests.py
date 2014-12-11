@@ -1,14 +1,14 @@
 import os, sys, unittest, time, dateutil, json
 from datetime import datetime
 from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
-				 JobIsRolledBack, JobIsFailed, FailedToComplete, \
-				 FailedToRollBack, _locks_collection, _jobs_collection, \
-				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
-				 _get_lock_collection_key, _get_httperror_status_code, \
-				 _jobs_collection
+		JobIsRolledBack, JobIsFailed, FailedToComplete, \
+		FailedToRollBack, _locks_collection, _jobs_collection, \
+		_generate_key, RollbackCausedByException, JobIsTimedOut, \
+		_get_lock_collection_key, _get_httperror_status_code, \
+		_jobs_collection
 from . import _were_collections_cleared, _oio_api_key, \
-			  _verify_job_creation, _clear_test_collections, \
-			  _verify_lock_creation, _verify_lock_deletion
+		_verify_job_creation, _clear_test_collections, \
+		_verify_lock_creation, _verify_lock_deletion
 
 def verify_locked_exception_is_raised(test_instance, operation, *args):
 	try:
@@ -16,10 +16,9 @@ def verify_locked_exception_is_raised(test_instance, operation, *args):
 		test_instance.fail('RollbackCausedByException not raised')
 	except Exception as e:
 		test_instance.assertEqual(e.__class__.__name__, 
-								 'RollbackCausedByException')
+				'RollbackCausedByException')
 		test_instance.assertEqual(e.exception_causing_rollback.
-								  __class__.__name__, 
-								 'CollectionKeyIsLocked')
+				__class__.__name__, 'CollectionKeyIsLocked')
 
 def run_test_job1(client):
 	# Add records without a job.
@@ -64,18 +63,16 @@ def run_test_rollback_caused_by_exception(client, test_instance):
 	key = _generate_key()
 	response = client.put('test1', key, {})
 	response.raise_for_status()
-	response = job.put('test1', key, {'value_testkey': 
-			   'value_testvalue'})
+	response = job.put('test1', key, {'value_testkey': 'value_testvalue'})
 	test_instance.assertRaises(RollbackCausedByException, job.put, 'test1', 
-					  key, None)
+			key, None)
 
 def run_test_failed_completion(client, test_instance):
 	job = Job(client)
 	key = _generate_key()
 	response = client.put('test1', key, {})
 	response.raise_for_status()
-	response = job.put('test1', key, {'value_testkey': 
-			   'value_testvalue'})
+	response = job.put('test1', key, {'value_testkey': 'value_testvalue'})
 	job._client = None
 	test_instance.assertRaises(FailedToComplete, job.complete)
 	job._client = client
@@ -91,8 +88,7 @@ def run_test_failed_rollback(client, test_instance):
 	key = _generate_key()
 	response = client.put('test1', key, {})
 	response.raise_for_status()
-	response = job.put('test1', key, {'value_testkey': 
-			   'value_testvalue'})
+	response = job.put('test1', key, {'value_testkey': 'value_testvalue'})
 	job._client = None
 	test_instance.assertRaises(FailedToRollBack, job.roll_back)
 	job._client = client
@@ -106,11 +102,11 @@ def run_test_job_timeout(client, test_instance):
 	time.sleep(6)
 	test_instance.assertRaises(JobIsTimedOut, job.post, 'test2', {})
 	test_instance.assertRaises(JobIsTimedOut, job.put, 'test2', 
-					  _generate_key(), {})
+			_generate_key(), {})
 	test_instance.assertRaises(JobIsTimedOut, job.get, 'test2', 
-					  _generate_key())
+			_generate_key())
 	test_instance.assertRaises(JobIsTimedOut, job.delete, 'test2', 
-					  _generate_key())
+			_generate_key())
 	test_instance.assertRaises(JobIsTimedOut, job.complete)
 	test_instance.assertRaises(JobIsTimedOut, job.roll_back)
 
@@ -176,46 +172,40 @@ def run_test_job_and_lock_creation_and_removal2(client, test_instance):
 def run_test_verify_operations_and_roll_back(client, test_instance):
 	test3_key = _generate_key()
 	response3 = client.put('test3', test3_key,
-				{'value_key3': 'value_value3'})
+			{'value_key3': 'value_value3'})
 	response3.raise_for_status()
-	response = client.get('test3', test3_key, 
-			   response3.ref, False)
+	response = client.get('test3', test3_key, response3.ref, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_key3': 'value_value3'}, response.json)
 	job = Job(client)
 	response2 = job.post('test2', {'value_key2': 'value_value2'})
 	response2.raise_for_status()
-	response = client.get('test2', response2.key,
-			   response2.ref, False)
+	response = client.get('test2', response2.key, response2.ref, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_key2': 'value_value2'}, response.json)
 	response3 = job.put('test3', test3_key,
-				{'value_newkey3': 'value_newvalue3'}, response3.ref)
+			{'value_newkey3': 'value_newvalue3'}, response3.ref)
 	response3.raise_for_status()
-	response = client.get('test3', test3_key, 
-			   response3.ref, False)
+	response = client.get('test3', test3_key, response3.ref, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, 
-							  response.json)
+			response.json)
 	response = job.get('test3', test3_key, response3.ref)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, 
-							  response.json)
+			response.json)
 	response4 = client.post('test4', {'value_key4': 'value_value4'})
 	response4.raise_for_status()
 	job.delete('test4', response4.key)
 	response = client.get('test4', response4.key, response4.ref, False)
 	test_instance.assertEqual(response.status_code, 404)
 	job.roll_back()
-	response = client.get('test2', response2.key,
-			   None, False)
+	response = client.get('test2', response2.key, None, False)
 	test_instance.assertEqual(response.status_code, 404)
-	response = client.get('test3', test3_key, 
-			   None, False)
+	response = client.get('test3', test3_key, None, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_key3': 'value_value3'}, response.json)
-	response = client.get('test4', response4.key, 
-			   None, False)
+	response = client.get('test4', response4.key, None, False)
 	response.raise_for_status()
 	test_instance.assertEqual({'value_key4': 'value_value4'}, response.json)
 
@@ -223,11 +213,11 @@ def run_test_exception_raised_when_key_locked(client, test_instance):
 	job = Job(client)
 	response2 = job.post('test2', {})	
 	verify_locked_exception_is_raised(test_instance, Job(client).put,
-									  'test2', response2.key, {})
+			'test2', response2.key, {})
 	verify_locked_exception_is_raised(test_instance, Job(client).get,
-									  'test2', response2.key)
+			'test2', response2.key)
 	verify_locked_exception_is_raised(test_instance, Job(client).delete,
-									  'test2', response2.key)
+			'test2', response2.key)
 
 class JobTests(unittest.TestCase):
 	def setUp(self):

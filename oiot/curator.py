@@ -1,13 +1,13 @@
 from porc import Client
 from . import _locks_collection, _get_lock_collection_key, \
-			  _curators_collection, _active_curator_key, \
-			  _curator_heartbeat_timeout_in_ms, _Encoder, \
-			  _curator_inactivity_delay_in_ms, _ActiveCuratorDetails, \
-			  _curator_heartbeat_interval_in_ms, _get_httperror_status_code, \
-			  _jobs_collection, _format_exception, _JournalItem, _Lock, \
-			  _max_job_time_in_ms, _roll_back_journal_item, \
-			  _locks_collection, _additional_timeout_wait_in_ms, \
-			  CuratorNoLongerActive
+		_curators_collection, _active_curator_key, \
+		_curator_heartbeat_timeout_in_ms, _Encoder, \
+		_curator_inactivity_delay_in_ms, _ActiveCuratorDetails, \
+		_curator_heartbeat_interval_in_ms, _get_httperror_status_code, \
+		_jobs_collection, _format_exception, _JournalItem, _Lock, \
+		_max_job_time_in_ms, _roll_back_journal_item, \
+		_locks_collection, _additional_timeout_wait_in_ms, \
+		CuratorNoLongerActive
 
 # TODO: Log unexpected exceptions locally and to 'oiot-errors'
 # TODO: What to do if a job or journal is corrupt and can't be rolled back?
@@ -45,11 +45,11 @@ class Curator(Client):
 		if add_new_record:
 			last_ref_value = False
 		active_curator_details = _ActiveCuratorDetails(self._id,
-								 datetime.utcnow())
+				datetime.utcnow())
 		response = self._client.put(_curators_collection,
-				   _active_curator_key,
-				   json.loads(json.dumps(vars(active_curator_details),
-				   cls=_Encoder)), last_ref_value, False)
+				_active_curator_key,
+				json.loads(json.dumps(vars(active_curator_details),
+				cls=_Encoder)), last_ref_value, False)
 		try:
 			response.raise_for_status()
 		except Exception as e:
@@ -80,7 +80,7 @@ class Curator(Client):
 		# If not active then check to see when the last active curator 
 		# heartbeat was sent.
 		response = self._client.get(_curators_collection,
-									_active_curator_key, None, False)
+				_active_curator_key, None, False)
 		try:
 			response.raise_for_status()
 		except Exception as e:
@@ -92,8 +92,8 @@ class Curator(Client):
 			else:
 				raise e
 		active_curator_details = _ActiveCuratorDetails(
-						response.json['curator_id'],
-						dateutil.parser.parse(response.json['timestamp']))
+				response.json['curator_id'],
+				dateutil.parser.parse(response.json['timestamp']))
 		# If the last active curator's heartbeat is timed out then
 		# try to become the active curator.
 		if ((datetime.utcnow() - active_curator_details.timestamp).
@@ -120,15 +120,15 @@ class Curator(Client):
 					# Iterate on the journal items and roll back each one.
 					for item in job['value']['items']:
 						journal_item = _JournalItem(item['timestamp'],
-									   item['collection'], item['key'],
-									   item['original_value'],
-									   item['new_value'])
+								item['collection'], item['key'],
+								item['original_value'],
+								item['new_value'])
 						_roll_back_journal_item(self._client, journal_item,
-												self._try_send_heartbeat)
+								self._try_send_heartbeat)
 					self._append_to_removed_job_ids(job['path']['key'])
 					self._try_send_heartbeat()
 					response = self._client.delete(_jobs_collection, 
-							   job['path']['key'], None, False)
+							job['path']['key'], None, False)
 					response.raise_for_status()
 			except CuratorNoLongerActive:
 				raise
@@ -152,7 +152,7 @@ class Curator(Client):
 						_additional_timeout_wait_in_ms):
 					if is_lock_associated_with_removed_job is False:
 						response = self._client.get(_jobs_collection, 
-										 lock['value']['job_id'], None, False)
+								lock['value']['job_id'], None, False)
 						if response.status_code == 404:						
 							is_lock_associated_with_removed_job = True
 					if is_lock_associated_with_removed_job:

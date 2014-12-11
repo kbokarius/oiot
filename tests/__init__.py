@@ -1,5 +1,5 @@
 from oiot import _locks_collection, _jobs_collection, _curators_collection, \
-				 _get_lock_collection_key, _get_httperror_status_code
+		_get_lock_collection_key, _get_httperror_status_code
 from datetime import datetime
 import dateutil
 
@@ -15,18 +15,18 @@ def _clear_test_collections(client):
 
 def _verify_job_creation(testinstance, job):
 	response = job._client.get(_jobs_collection, job._job_id,
-			   None, False)
+			None, False)
 	response.raise_for_status()
 	testinstance.assertTrue((datetime.utcnow() - 
-					 dateutil.parser.parse(
-					 response.json['timestamp'])).
-					 total_seconds() < 2.0)
+			dateutil.parser.parse(
+			response.json['timestamp'])).
+			total_seconds() < 2.0)
 	testinstance.assertTrue('items' in response.json)
 
 def _verify_lock_creation(testinstance, job, collection, key):
 	response = job._client.get(_locks_collection, 
-			   _get_lock_collection_key(collection, key), 
-			   None, False)
+			_get_lock_collection_key(collection, key), 
+			None, False)
 	response.raise_for_status()
 	testinstance.assertEqual(response.json['job_id'], job._job_id)
 	testinstance.assertEqual(response.json['collection'], collection)

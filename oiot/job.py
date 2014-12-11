@@ -1,11 +1,11 @@
 import sys, traceback
 from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
-			  _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
-			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
-			  FailedToRollBack, RollbackCausedByException, \
-			  _max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item, \
-			  CollectionKeyIsLocked, _deleted_object_value, \
-			  _create_and_add_lock
+		_generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
+		JobIsRolledBack, JobIsFailed, FailedToComplete, \
+		FailedToRollBack, RollbackCausedByException, \
+		_max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item, \
+		CollectionKeyIsLocked, _deleted_object_value, \
+		_create_and_add_lock
 
 from datetime import datetime
 import json
@@ -37,7 +37,7 @@ class Job:
 
 	def _raise_if_job_is_timed_out(self):
 		elapsed_milliseconds = (datetime.utcnow() - 
-								self._timestamp).total_seconds() * 1000.0
+				self._timestamp).total_seconds() * 1000.0
 		if elapsed_milliseconds > _max_job_time_in_ms:
 			raise JobIsTimedOut('Ran for ' + str(elapsed_milliseconds) + 'ms')
 
@@ -45,15 +45,15 @@ class Job:
 		for lock in self._locks:
 			self._raise_if_job_is_timed_out()
 			response = self._client.delete(_locks_collection, 
-					   _get_lock_collection_key(lock.collection, lock.key), 
-					   lock.lock_ref, False)
+					_get_lock_collection_key(lock.collection, lock.key), 
+					lock.lock_ref, False)
 			response.raise_for_status()
 		self._locks = []
 
 	def _remove_job(self):
 		self._raise_if_job_is_timed_out()
 		response = self._client.delete(_jobs_collection, self._job_id, 
-				   None, False)
+				None, False)
 		response.raise_for_status()
 		self._journal = []
 
@@ -63,18 +63,18 @@ class Job:
 				return lock
 		self._raise_if_job_is_timed_out()
 		lock = _create_and_add_lock(self._client, collection, key,
-									self._job_id, self._timestamp)
+				self._job_id, self._timestamp)
 		self._locks.append(lock)
 		return lock
 
 	def _add_journal_item(self, collection, key, new_value, original_value):
 		self._raise_if_job_is_timed_out()		
 		journal_item = _JournalItem(datetime.utcnow(), collection, key,
-					   original_value, new_value)
+				original_value, new_value)
 		self._journal.append(journal_item)
 		job_response = self._client.put(_jobs_collection, self._job_id, 
-					   json.loads(json.dumps({'timestamp': self._timestamp,
-					   'items': self._journal}, cls=_Encoder)), None, False)
+				json.loads(json.dumps({'timestamp': self._timestamp,
+				'items': self._journal}, cls=_Encoder)), None, False)
 		job_response.raise_for_status()
 		return journal_item
 		
@@ -112,7 +112,7 @@ class Job:
 			else:
 				response.raise_for_status()
 			journal_item = self._add_journal_item(collection, key,
-						   value, original_value)
+					value, original_value)
 			self._raise_if_job_is_timed_out()
 			response = self._client.put(collection, key, value, ref, False)
 			response.raise_for_status()
@@ -131,7 +131,7 @@ class Job:
 			response.raise_for_status()
 			original_value = response.json
 			journal_item = self._add_journal_item(collection, key,
-						   _deleted_object_value, original_value)
+					_deleted_object_value, original_value)
 			self._raise_if_job_is_timed_out()
 			response = self._client.delete(collection, key, ref, False)
 			response.raise_for_status()
@@ -145,31 +145,29 @@ class Job:
 		try:
 			for journal_item in self._journal:
 				_roll_back_journal_item(self._client, journal_item, 
-										self._raise_if_job_is_timed_out)
-			self._remove_locks()
+						self._raise_if_job_is_timed_out)
 			self._remove_job()
+			self._remove_locks()
 			self.is_rolled_back = True
 			if exception_causing_rollback:
 				raise RollbackCausedByException(exception_causing_rollback[0],
-									   exception_causing_rollback[1])
+						exception_causing_rollback[1])
 		except RollbackCausedByException as e:
 			raise e
 		except Exception as e:
 			self.is_failed = True			
 			if exception_causing_rollback:
-				raise FailedToRollBack(e, 
-									   traceback.format_exc(),
-									   exception_causing_rollback[0],
-									   exception_causing_rollback[1])
+				raise FailedToRollBack(e, traceback.format_exc(),
+						exception_causing_rollback[0], 
+						exception_causing_rollback[1])
 			else:
-				raise FailedToRollBack(e, 
-									   traceback.format_exc())
+				raise FailedToRollBack(e, traceback.format_exc())
 
 	def complete(self):
 		self._verify_job_is_active()
 		try: 
-			self._remove_locks()
 			self._remove_job()
+			self._remove_locks()
 			self.is_completed = True
 		except Exception as e:
 			self.is_failed = True

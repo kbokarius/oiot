@@ -1,14 +1,14 @@
 import os, sys, unittest, time, dateutil, json
 from datetime import datetime
 from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
-				 JobIsRolledBack, JobIsFailed, FailedToComplete, \
-				 FailedToRollBack, _locks_collection, _jobs_collection, \
-				 _generate_key, RollbackCausedByException, JobIsTimedOut, \
-				 _get_lock_collection_key, _get_httperror_status_code, \
-				 _jobs_collection
+		JobIsRolledBack, JobIsFailed, FailedToComplete, \
+		FailedToRollBack, _locks_collection, _jobs_collection, \
+		_generate_key, RollbackCausedByException, JobIsTimedOut, \
+		_get_lock_collection_key, _get_httperror_status_code, \
+		_jobs_collection
 from . import _were_collections_cleared, _oio_api_key, \
-			  _verify_job_creation, _clear_test_collections, \
-			  _verify_lock_creation
+		_verify_job_creation, _clear_test_collections, \
+		_verify_lock_creation
 import threading
 
 _threads = []
@@ -30,7 +30,7 @@ def _run_latency_test():
 		response.raise_for_status()
 		client.get('test2', response.key).raise_for_status()
 		client.put('test2', response.key, 
-				  {'value_newkey2': 'newvalue2'}).raise_for_status()
+				{'value_newkey2': 'newvalue2'}).raise_for_status()
 		execution_times.append(time.time() - op_start_time)
 	_averages.append(reduce(lambda x, y: x + y, 
 			execution_times) / len(execution_times))
@@ -44,9 +44,10 @@ def _run_latency_test_using_job():
 		job = Job(client)
 		response = job.post('test2', {'value_key2': 'value2'})
 		response.raise_for_status()
-		client.get('test2', response.key, raise_if_locked=False).raise_for_status()
+		client.get('test2', response.key, 
+				raise_if_locked=False).raise_for_status()
 		job.put('test2', response.key, 
-				  {'value_newkey2': 'newvalue2'}).raise_for_status()
+				{'value_newkey2': 'newvalue2'}).raise_for_status()
 		job.complete()
 		execution_times.append(time.time() - op_start_time)
 	_averages.append(reduce(lambda x, y: x + y, 
@@ -68,5 +69,4 @@ if __name__ == '__main__':
 					break	
 		print(str(index) + ' thread average: ' + str(reduce(lambda x, y: x + y, 
 				_averages) / len(_averages)))
-		_averages = []		
-	
+		_averages = []
