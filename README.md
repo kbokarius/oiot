@@ -1,6 +1,6 @@
-# Overview 
+## Overview 
 
-A tool providing read/write locks and facilitating transactions for Orchestrate.io (o.io). Consists of a Job class allowing for multiple o.io operations to be executed as an atomic transaction, an OiotClient class inherited from porc.Client that raises exceptions if an attempt is made to access a locked collection key, and a Curator class that's designed to run as a service and clean up broken transactions.
+A tool providing read/write locks and facilitating transactions for Orchestrate.io (o.io). Consists of a Job class allowing for multiple o.io operations to be executed as an atomic transaction, an OiotClient class inherited from porc.Client that raises exceptions if an attempt is made to access a locked collection key, and a Curator class that's designed to run as a service and clean up broken transactions. 
 
 Note that using oiot requires additional o.io operations for the journaling and locking mechanisms, and subsequently introduces additional overhead when used instead of porc.Client. Therefore, oiot should only be used in conjunction with collections that require locks and/or transactions.
 
@@ -60,7 +60,7 @@ _deleted_object_value = {"deleted": "{A0981677-7933-4A5C-A141-9B40E60BD411}"}
 
 ## Usage
 
-Common oiot use cases are as follows:
+Oiot is compatible with both Python 2.7 and 3.4. Common oiot use cases are as follows:
 
 ```python
 from oiot import Job, OiotClient

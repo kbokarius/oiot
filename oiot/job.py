@@ -2,7 +2,7 @@ import sys, traceback
 from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
 			  _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
 			  JobIsRolledBack, JobIsFailed, FailedToComplete, \
-			  FailedToRollBack, _format_exception, RollbackCausedByException, \
+			  FailedToRollBack, RollbackCausedByException, \
 			  _max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item, \
 			  CollectionKeyIsLocked, _deleted_object_value, \
 			  _create_and_add_lock
@@ -88,7 +88,7 @@ class Job:
 			self._raise_if_job_is_timed_out()
 			return response
 		except Exception as e:
-			self.roll_back((e, traceback.format_exc(sys.exc_info())))
+			self.roll_back((e, traceback.format_exc()))
 
 	def post(self, collection, value):
 		key = _generate_key()
@@ -119,7 +119,7 @@ class Job:
 			self._raise_if_job_is_timed_out()
 			return response
 		except Exception as e:
-			self.roll_back((e, traceback.format_exc(sys.exc_info())))
+			self.roll_back((e, traceback.format_exc()))
 
 	def delete(self, collection, key, ref = None):	
 		self._verify_job_is_active()
@@ -138,7 +138,7 @@ class Job:
 			self._raise_if_job_is_timed_out()
 			return response
 		except Exception as e:
-			self.roll_back((e, traceback.format_exc(sys.exc_info())))
+			self.roll_back((e, traceback.format_exc()))
 
 	def roll_back(self, exception_causing_rollback = None):
 		self._verify_job_is_active()
@@ -158,12 +158,12 @@ class Job:
 			self.is_failed = True			
 			if exception_causing_rollback:
 				raise FailedToRollBack(e, 
-									   traceback.format_exc(sys.exc_info()),
+									   traceback.format_exc(),
 									   exception_causing_rollback[0],
 									   exception_causing_rollback[1])
 			else:
 				raise FailedToRollBack(e, 
-									   traceback.format_exc(sys.exc_info()))
+									   traceback.format_exc())
 
 	def complete(self):
 		self._verify_job_is_active()
@@ -173,4 +173,4 @@ class Job:
 			self.is_completed = True
 		except Exception as e:
 			self.is_failed = True
-			raise FailedToComplete(e, traceback.format_exc(sys.exc_info()))
+			raise FailedToComplete(e, traceback.format_exc())

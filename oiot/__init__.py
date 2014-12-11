@@ -14,10 +14,10 @@ _additional_timeout_wait_in_ms = 1000
 _deleted_object_value = {"deleted": "{A0981677-7933-4A5C-A141-9B40E60BD411}"}
 
 def _generate_key():
-	return binascii.b2a_hex(os.urandom(8))
+	return str(binascii.b2a_hex(os.urandom(8)))
 
 def _get_lock_collection_key(collection_to_lock, key_to_lock):
-	return collection_to_lock + "-" + key_to_lock
+	return collection_to_lock + "-" + str(key_to_lock)
 
 def _get_httperror_status_code(exception):
 	if exception.__class__.__name__ is 'HTTPError':
@@ -25,12 +25,8 @@ def _get_httperror_status_code(exception):
 	else:
 		return None
 
-# Required for maintaining tracebacks for wrapped exceptions for Python
-# 2.x / 3.x compatibility. 
-# NOTE: Must be called immediately after the exception is caught.
 def _format_exception(e):
-	return (str(e) + ': ' +
-		   traceback.format_exc(sys.exc_info()))
+	return traceback.format_exc()
 
 def _create_and_add_lock(client, collection, key, job_id, timestamp):
 	lock = _Lock(job_id, timestamp, datetime.utcnow(), 

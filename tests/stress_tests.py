@@ -63,7 +63,7 @@ class StressTests(unittest.TestCase):
 		try:
 			client = self._get_client()
 			while (self._should_run_curator_tests):
-				print 'running curator test'
+				print('Running curator test...')
 				run_test_curation_of_timed_out_jobs(client, self)
 				run_test_curation_of_timed_out_locks(client, self)
 				run_test_changed_records_are_not_rolled_back(client, self)
@@ -82,7 +82,7 @@ class StressTests(unittest.TestCase):
 		try:
 			client = self._get_client()
 			while (self._should_run_job_tests):
-				print 'running job test'
+				print('Running job test...')
 				run_test_job_timeout(client, self)
 				run_test_basic_job_completion(client, self)
 				run_test_basic_job_rollback(client, self)
@@ -101,7 +101,7 @@ class StressTests(unittest.TestCase):
 		start_time = datetime.utcnow()
 		client = self._get_client()
 		for index in range(self._number_of_curators):
-			print 'starting curator'
+			print('Starting curator...')
 			curator = Curator(client)
 			thread = threading.Thread(target = self.run_curator,
 					 args = (curator,))
@@ -132,10 +132,10 @@ class StressTests(unittest.TestCase):
 			if self._job_tests_thread_exception:
 				self._fail(self._job_tests_thread_exception)
 			time.sleep(5)
-		print 'turning off test threads'
+		print('Turning off test threads...')
 		self._should_run_curator_tests = False
 		self._should_run_job_tests = False
-		print 'waiting for test threads to finished'			
+		print('Waiting for test threads to finished...')			
 		all_test_group_threads_finished = False
 		while (all_test_group_threads_finished is False):
 			time.sleep(1)
@@ -147,7 +147,7 @@ class StressTests(unittest.TestCase):
 			for test_index in range(self._number_of_job_test_threads):
 				if (self._finished_job_tests[test_index] is False):
 					all_test_group_threads_finished = False
-		print 'test threads finished'
+		print('Test threads finished.')
 		for thread in self._curator_threads:
 			self._curator_threads[thread]._should_continue_to_run = False
 

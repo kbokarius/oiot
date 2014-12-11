@@ -44,6 +44,8 @@ def run_test_basic_job_completion(client, test_instance):
 	job.complete() 
 	test_instance.assertRaises(JobIsCompleted, job.post, None, None)
 	test_instance.assertRaises(JobIsCompleted, job.put, None, None, None)
+	test_instance.assertRaises(JobIsCompleted, job.get, None, None, None)
+	test_instance.assertRaises(JobIsCompleted, job.delete, None, None, None)
 	test_instance.assertRaises(JobIsCompleted, job.complete)
 	test_instance.assertRaises(JobIsCompleted, job.roll_back)
 
@@ -52,6 +54,8 @@ def run_test_basic_job_rollback(client, test_instance):
 	job.roll_back() 
 	test_instance.assertRaises(JobIsRolledBack, job.post, None, None)
 	test_instance.assertRaises(JobIsRolledBack, job.put, None, None, None)
+	test_instance.assertRaises(JobIsRolledBack, job.get, None, None, None)
+	test_instance.assertRaises(JobIsRolledBack, job.delete, None, None, None)
 	test_instance.assertRaises(JobIsRolledBack, job.complete)
 	test_instance.assertRaises(JobIsRolledBack, job.roll_back)
 
@@ -77,6 +81,8 @@ def run_test_failed_completion(client, test_instance):
 	job._client = client
 	test_instance.assertRaises(JobIsFailed, job.post, None, None)
 	test_instance.assertRaises(JobIsFailed, job.put, None, None, None)
+	test_instance.assertRaises(JobIsFailed, job.get, None, None, None)
+	test_instance.assertRaises(JobIsFailed, job.delete, None, None, None)
 	test_instance.assertRaises(JobIsFailed, job.complete)
 	test_instance.assertRaises(JobIsFailed, job.roll_back)
 
@@ -92,6 +98,8 @@ def run_test_failed_rollback(client, test_instance):
 	job._client = client
 	test_instance.assertRaises(JobIsFailed, job.post, None, None)
 	test_instance.assertRaises(JobIsFailed, job.put, None, None, None)
+	test_instance.assertRaises(JobIsFailed, job.get, None, None, None)
+	test_instance.assertRaises(JobIsFailed, job.delete, None, None, None)
 
 def run_test_job_timeout(client, test_instance):
 	job = Job(client)
@@ -99,6 +107,10 @@ def run_test_job_timeout(client, test_instance):
 	test_instance.assertRaises(JobIsTimedOut, job.post, 'test2', {})
 	test_instance.assertRaises(JobIsTimedOut, job.put, 'test2', 
 					  _generate_key(), {})
+	test_instance.assertRaises(JobIsTimedOut, job.get, 'test2', 
+					  _generate_key())
+	test_instance.assertRaises(JobIsTimedOut, job.delete, 'test2', 
+					  _generate_key())
 	test_instance.assertRaises(JobIsTimedOut, job.complete)
 	test_instance.assertRaises(JobIsTimedOut, job.roll_back)
 
@@ -231,8 +243,7 @@ class JobTests(unittest.TestCase):
 			time.sleep(4)
 			_were_collections_cleared = True
 
-	def test_basic_job_completion(self):	
-		
+	def test_basic_job_completion(self):			
 		run_test_basic_job_completion(self._client, self)
 
 	def test_basic_job_rollback(self):	

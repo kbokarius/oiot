@@ -13,5 +13,5 @@ if __name__ == '__main__':
 			curator.run()
 		except Exception as e:
 			# TODO: Log exception.
-			print('Caught: ' + str(e) + ': ' + traceback.format_exc(sys.exc_info()))
+			print('Caught: ' + traceback.format_exc())
 			time.sleep(3)
