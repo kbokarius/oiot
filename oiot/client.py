@@ -17,7 +17,6 @@ class OiotClient(Client):
 					_get_lock_collection_key(lock.collection, lock.key), 
 					lock.lock_ref)
 		except:
-			raise
 			pass
 
 	def _lock_key_and_execute_operation(self, raise_if_locked, operation, *args):
