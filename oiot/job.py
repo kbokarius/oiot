@@ -14,7 +14,15 @@ import json
 # exception and stack trace was.
 
 class Job:
+    """
+    A class used for executing o.io operations as a single atomic
+    transaction by utilizing locking and journaling mechanisms.
+    """
     def __init__(self, client):
+        """
+        Create a Job instance.
+        :param client: the client to use
+        """
         self._job_id = _generate_key()
         self._timestamp = datetime.utcnow()
         self._client = client
@@ -27,6 +35,9 @@ class Job:
         self.is_failed = False
 
     def _verify_job_is_active(self):
+        """
+        Verify that this job is active and raise an exception if it is not.
+        """
         if self.is_failed:
             raise JobIsFailed
         elif self.is_completed:
@@ -36,28 +47,45 @@ class Job:
         self._raise_if_job_is_timed_out()
 
     def _raise_if_job_is_timed_out(self):
-        elapsed_milliseconds = (datetime.utcnow() - 
+        """
+        Verify that this job is not timed out and raise an exception
+        if it is.
+        """
+        elapsed_milliseconds = (datetime.utcnow() -
                 self._timestamp).total_seconds() * 1000.0
         if elapsed_milliseconds > _max_job_time_in_ms:
             raise JobIsTimedOut('Ran for ' + str(elapsed_milliseconds) + 'ms')
 
-    def _remove_locks(self):        
+    def _remove_locks(self):
+        """
+        Remove all locks associated with this job from o.io.
+        """
         for lock in self._locks:
             self._raise_if_job_is_timed_out()
-            response = self._client.delete(_locks_collection, 
-                    _get_lock_collection_key(lock.collection, lock.key), 
+            response = self._client.delete(_locks_collection,
+                    _get_lock_collection_key(lock.collection, lock.key),
                     lock.lock_ref, False)
             response.raise_for_status()
         self._locks = []
 
     def _remove_job(self):
+        """
+        Remove this job from o.io.
+        """
         self._raise_if_job_is_timed_out()
-        response = self._client.delete(_jobs_collection, self._job_id, 
+        response = self._client.delete(_jobs_collection, self._job_id,
                 None, False)
         response.raise_for_status()
         self._journal = []
 
     def _get_lock(self, collection, key):
+        """
+        Create a lock for the specified collection and key and add
+        it to o.io.
+        :param collection: the specified collection to lock
+        :param key: the specified key to lock
+        :return: the created lock
+        """
         for lock in self._locks:
             if lock.collection == collection and lock.key == key:
                 return lock
@@ -68,17 +96,33 @@ class Job:
         return lock
 
     def _add_journal_item(self, collection, key, new_value, original_value):
-        self._raise_if_job_is_timed_out()        
+        """
+        Add a journal item to this job.
+        :param collection: the collection
+        :param key: the key
+        :param new_value: the new value
+        :param original_value: the original value
+        :return: the created journal item
+        """
+        self._raise_if_job_is_timed_out()
         journal_item = _JournalItem(datetime.utcnow(), collection, key,
                 original_value, new_value)
         self._journal.append(journal_item)
-        job_response = self._client.put(_jobs_collection, self._job_id, 
+        job_response = self._client.put(_jobs_collection, self._job_id,
                 json.loads(json.dumps({'timestamp': self._timestamp,
                 'items': self._journal}, cls=_Encoder)), None, False)
         job_response.raise_for_status()
         return journal_item
-        
-    def get(self, collection, key, ref = None):    
+
+    def get(self, collection, key, ref = None):
+        """
+        Execute a get operation via this job by locking the collection key
+        prior to executing the operation.
+        :param collection: the collection
+        :param key: the key
+        :param ref: the ref
+        :return: the operation's response
+        """
         self._verify_job_is_active()
         try:
             lock = self._get_lock(collection, key)
@@ -91,10 +135,25 @@ class Job:
             self.roll_back((e, traceback.format_exc()))
 
     def post(self, collection, value):
+        """
+        Execute a post operation via this job by locking the collection key
+        prior to executing the operation.
+        :param collection: the collection
+        :param key: the key
+        :param ref: the ref
+        :return: the operation's response
+        """
         key = _generate_key()
         return self.put(collection, key, value)
 
-    def put(self, collection, key, value, ref = None):    
+    def put(self, collection, key, value, ref = None):
+        """
+        Execute a put operation via this job by locking the collection key
+        prior to executing the operation.
+        :param collection: the collection
+        :param key: the key
+        :return: the operation's response
+        """
         self._verify_job_is_active()
         try:
             lock = self._get_lock(collection, key)
@@ -103,11 +162,11 @@ class Job:
             # If ref was not passed, retrieve the current ref and store it.
             response = self._client.get(collection, key, ref, False)
             # Indicates a new record will be created.
-            if response.status_code == 404: 
+            if response.status_code == 404:
                 original_value = None
-            # Indicates an existing record will be updated so store the 
+            # Indicates an existing record will be updated so store the
             # original ref and value.
-            elif response.status_code == 200: 
+            elif response.status_code == 200:
                 original_value = response.json
             else:
                 response.raise_for_status()
@@ -121,7 +180,14 @@ class Job:
         except Exception as e:
             self.roll_back((e, traceback.format_exc()))
 
-    def delete(self, collection, key, ref = None):    
+    def delete(self, collection, key, ref = None):
+        """
+        Execute a delete operation via this job by locking the collection key
+        prior to executing the operation.
+        :param collection: the collection
+        :param key: the key
+        :return: the operation's response
+        """
         self._verify_job_is_active()
         try:
             lock = self._get_lock(collection, key)
@@ -141,10 +207,16 @@ class Job:
             self.roll_back((e, traceback.format_exc()))
 
     def roll_back(self, exception_causing_rollback = None):
+        """
+        Rolls back this job by rolling back each journal item and removing
+        the locks associated with the job and the job itself.
+        :param exception_causing_rollback: the exception that caused
+        the roll back
+        """
         self._verify_job_is_active()
         try:
             for journal_item in self._journal:
-                _roll_back_journal_item(self._client, journal_item, 
+                _roll_back_journal_item(self._client, journal_item,
                         self._raise_if_job_is_timed_out)
             self._remove_job()
             self._remove_locks()
@@ -155,17 +227,21 @@ class Job:
         except RollbackCausedByException as e:
             raise e
         except Exception as e:
-            self.is_failed = True            
+            self.is_failed = True
             if exception_causing_rollback:
                 raise FailedToRollBack(e, traceback.format_exc(),
-                        exception_causing_rollback[0], 
+                        exception_causing_rollback[0],
                         exception_causing_rollback[1])
             else:
                 raise FailedToRollBack(e, traceback.format_exc())
 
     def complete(self):
+        """
+        Completes this job by removing the locks associated with the job
+        and the job itself.
+        """
         self._verify_job_is_active()
-        try: 
+        try:
             self._remove_job()
             self._remove_locks()
             self.is_completed = True

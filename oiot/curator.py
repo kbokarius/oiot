@@ -17,7 +17,14 @@ import dateutil.parser
 import uuid, time, json
 
 class Curator(Client):
+    """
+    The class used for curating broken jobs and locks.
+    """
     def __init__(self, client):
+        """
+        Create a Curator instance.
+        :param client: the client to use
+        """
         self._client = client
         self._id = uuid.uuid4()
         self._is_active = False
@@ -27,15 +34,29 @@ class Curator(Client):
         self._removed_job_ids = []
 
     def _append_to_removed_job_ids(self, job_id):
+        """
+        Append the specified job ID to the list of removed job IDs.
+        :param job_id: the specified job ID
+        """
         if len(self._removed_job_ids) > 1000:
             self._removed_job_ids = self._removed_job_ids[:750]
         self._removed_job_ids.append(job_id)
 
     def _make_inactive_and_sleep(self):
+        """
+        Make this curator instance inactive and sleep for some time.
+        """
         self._is_active = False
         time.sleep(_curator_inactivity_delay_in_ms / 1000.0)
 
     def _try_send_heartbeat(self, add_new_record=False):
+        """
+        Try to send a heartbeat by updating the active curator object in the
+        curators o.io collection.
+        :param add_new_record: whether to add a new object to the curators
+        o.io collection
+        :return: whether the heartbeat was successfully sent
+        """
         # If too little time has passed since the last heartbeat 
         # then don't try to send another heartbeat.
         if (self._is_active and (datetime.utcnow() - self._last_heartbeat_time).
@@ -73,6 +94,10 @@ class Curator(Client):
 
     # Determine whether this instance is the active curator instance.
     def _determine_active_status(self):
+        """
+        Determine whether this curator is the active curator.
+        :return: whether this curator is the active curator
+        """
         if self._is_active:
             # Try to send a heartbeat and return the result indicating
             # whether this curator instance should continue to curate.
@@ -106,6 +131,9 @@ class Curator(Client):
             return False
 
     def _curate(self):
+        """
+        Curate any broken jobs and locks in o.io.
+        """
         was_something_curated = False
         pages = self._client.list(_jobs_collection)
         jobs = pages.all()
@@ -172,6 +200,9 @@ class Curator(Client):
         return was_something_curated
 
     def run(self):
+        """
+        Run this curator instance.
+        """
         while (self._should_continue_to_run):
             try:
                 if self._determine_active_status():
