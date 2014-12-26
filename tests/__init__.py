@@ -1,5 +1,5 @@
 from oiot import _locks_collection, _jobs_collection, _curators_collection, \
-		_get_lock_collection_key, _get_httperror_status_code
+        _get_lock_collection_key, _get_httperror_status_code
 from datetime import datetime
 import dateutil
 
@@ -7,47 +7,47 @@ _were_collections_cleared = False
 _oio_api_key = '69b4329e-990e-4969-b0ec-b7ef680fd32b'
 
 def _clear_test_collections(client):
-	client.delete('test1')
-	client.delete('test2')
-	client.delete(_locks_collection)
-	client.delete(_jobs_collection)
-	client.delete(_curators_collection)
+    client.delete('test1')
+    client.delete('test2')
+    client.delete(_locks_collection)
+    client.delete(_jobs_collection)
+    client.delete(_curators_collection)
 
 def _verify_job_creation(testinstance, job):
-	response = job._client.get(_jobs_collection, job._job_id,
-			None, False)
-	response.raise_for_status()
-	testinstance.assertTrue((datetime.utcnow() - 
-			dateutil.parser.parse(
-			response.json['timestamp'])).
-			total_seconds() < 2.0)
-	testinstance.assertTrue('items' in response.json)
+    response = job._client.get(_jobs_collection, job._job_id,
+            None, False)
+    response.raise_for_status()
+    testinstance.assertTrue((datetime.utcnow() - 
+            dateutil.parser.parse(
+            response.json['timestamp'])).
+            total_seconds() < 2.0)
+    testinstance.assertTrue('items' in response.json)
 
 def _verify_lock_creation(testinstance, job, collection, key):
-	response = job._client.get(_locks_collection, 
-			_get_lock_collection_key(collection, key), 
-			None, False)
-	response.raise_for_status()
-	testinstance.assertEqual(response.json['job_id'], job._job_id)
-	testinstance.assertEqual(response.json['collection'], collection)
-	testinstance.assertEqual(response.json['key'], key)
+    response = job._client.get(_locks_collection, 
+            _get_lock_collection_key(collection, key), 
+            None, False)
+    response.raise_for_status()
+    testinstance.assertEqual(response.json['job_id'], job._job_id)
+    testinstance.assertEqual(response.json['collection'], collection)
+    testinstance.assertEqual(response.json['key'], key)
 
 def _verify_lock_deletion(test_instance, job, collection, key):
-	was_404_error_caught = False
-	try:
-		_verify_lock_creation(test_instance, job, collection, key)
-	except Exception as e:
-		if _get_httperror_status_code(e) == 404:
-			was_404_error_caught = True
-	test_instance.assertTrue(was_404_error_caught)
+    was_404_error_caught = False
+    try:
+        _verify_lock_creation(test_instance, job, collection, key)
+    except Exception as e:
+        if _get_httperror_status_code(e) == 404:
+            was_404_error_caught = True
+    test_instance.assertTrue(was_404_error_caught)
 
 from .curator_tests import run_test_curation_of_timed_out_jobs, \
-		run_test_curation_of_timed_out_locks, \
-		run_test_changed_records_are_not_rolled_back
+        run_test_curation_of_timed_out_locks, \
+        run_test_changed_records_are_not_rolled_back
 from .job_tests import run_test_basic_job_completion, \
-		run_test_basic_job_rollback, run_test_rollback_caused_by_exception, \
-		run_test_failed_completion, run_test_failed_rollback, \
-		run_test_job_timeout, run_test_job_and_lock_creation_and_removal, \
-		run_test_job_and_lock_creation_and_removal2, \
-		run_test_verify_operations_and_roll_back, \
-		run_test_exception_raised_when_key_locked
+        run_test_basic_job_rollback, run_test_rollback_caused_by_exception, \
+        run_test_failed_completion, run_test_failed_rollback, \
+        run_test_job_timeout, run_test_job_and_lock_creation_and_removal, \
+        run_test_job_and_lock_creation_and_removal2, \
+        run_test_verify_operations_and_roll_back, \
+        run_test_exception_raised_when_key_locked
