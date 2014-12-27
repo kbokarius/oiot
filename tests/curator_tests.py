@@ -8,13 +8,13 @@ from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
 from oiot.settings import _curator_heartbeat_timeout_in_ms, \
         _additional_timeout_wait_in_ms, _max_job_time_in_ms, \
         _jobs_collection, _locks_collection
-from oiot.job import _generate_key, _get_lock_collection_key
+from oiot.job import Job
 from . import _were_collections_cleared, _oio_api_key, \
         _verify_job_creation, _clear_test_collections, \
         _verify_lock_creation
 
 def run_test_curation_of_timed_out_jobs(client, test_instance):
-    test3_key = _generate_key()
+    test3_key = Job._generate_key()
     response3 = client.put('test3', test3_key,
             {'value_key3': 'value_value3'})
     response3.raise_for_status()
@@ -59,20 +59,20 @@ def run_test_curation_of_timed_out_jobs(client, test_instance):
     for lock in job._locks:
         if lock.job_id == job._job_id:
             response = client.get(_locks_collection,
-                    _get_lock_collection_key(lock.collection,
+                    Job._get_lock_collection_key(lock.collection,
                     lock.key), None, False)
             test_instance.assertEqual(response.status_code, 404)
 
 def run_test_curation_of_timed_out_locks(client, test_instance):
-    test2_key = _generate_key()
-    test3_key = _generate_key()
+    test2_key = Job._generate_key()
+    test3_key = Job._generate_key()
     job = Job(client)
     job._get_lock('test2', test2_key)
     job._get_lock('test3', test3_key)
     for lock in job._locks:
         if lock.job_id == job._job_id:
             response = client.get(_locks_collection,
-                    _get_lock_collection_key(lock.collection,
+                    Job._get_lock_collection_key(lock.collection,
                     lock.key), None, False)
             response.raise_for_status()
     time.sleep(((_max_job_time_in_ms + _additional_timeout_wait_in_ms)
@@ -80,12 +80,12 @@ def run_test_curation_of_timed_out_locks(client, test_instance):
     for lock in job._locks:
         if lock.job_id == job._job_id:
             response = client.get(_locks_collection,
-                    _get_lock_collection_key(lock.collection,
+                    Job._get_lock_collection_key(lock.collection,
                     lock.key), None, False)
             test_instance.assertEqual(response.status_code, 404)
 
 def run_test_changed_records_are_not_rolled_back(client, test_instance):
-    test3_key = _generate_key()
+    test3_key = Job._generate_key()
     response3 = client.put('test3', test3_key,
             {'value_key3': 'value_value3'})
     response3.raise_for_status()
@@ -147,7 +147,7 @@ def run_test_changed_records_are_not_rolled_back(client, test_instance):
     for lock in job._locks:
         if lock.job_id == job._job_id:
             response = client.get(_locks_collection,
-                    _get_lock_collection_key(lock.collection,
+                    Job._get_lock_collection_key(lock.collection,
                     lock.key), None, False)
             test_instance.assertEqual(response.status_code, 404)
 

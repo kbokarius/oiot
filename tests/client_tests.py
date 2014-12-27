@@ -1,8 +1,7 @@
 import os, sys, unittest, time
 from oiot.settings import _locks_collection, _jobs_collection
 from oiot.client import OiotClient
-from oiot.job import Job, _generate_key, _get_lock_collection_key, \
-        _create_and_add_lock
+from oiot.job import Job
 from oiot.exceptions import CollectionKeyIsLocked, JobIsCompleted, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, \
         FailedToRollBack, RollbackCausedByException, JobIsTimedOut
@@ -20,27 +19,26 @@ class ClientTests(unittest.TestCase):
     def test_lock_key_and_execute_operation(self):
         response = self._client._lock_key_and_execute_operation(True,
                 super(self._client.__class__, self._client).put, 'test1',
-                _generate_key(), {}, None)
+                Job._generate_key(), {}, None)
         response.raise_for_status()
         self._client.get('test1', response.key, None,
                 False).raise_for_status()
         self.assertEqual(self._client.get(_locks_collection,
-                _get_lock_collection_key(
+                Job._get_lock_collection_key(
                 'test1', response.key), None,
                 False).status_code, 404)
 
     def test_add_and_remove_lock(self):
-        key = _generate_key()
-        lock = _create_and_add_lock(self._client, 'test1', key, None,
+        key = Job._generate_key()
+        lock = Job._create_and_add_lock(self._client, 'test1', key, None,
                 datetime.utcnow())
-        self._client.get(_locks_collection, _get_lock_collection_key(
+        self._client.get(_locks_collection, Job._get_lock_collection_key(
                 'test1', key), None,
                 False).raise_for_status()
         self._client._remove_lock(lock)
         self.assertEqual(self._client.get(_locks_collection,
-                _get_lock_collection_key(
-                'test1', key), None,
-                False).status_code, 404)
+                Job._get_lock_collection_key('test1', key), None, False).
+                status_code, 404)
 
     def test_ignore_locks(self):
         job = Job(self._client)

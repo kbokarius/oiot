@@ -2,7 +2,7 @@ import os, sys, unittest, time, dateutil, json
 from datetime import datetime
 from oiot.settings import _jobs_collection, _locks_collection
 from oiot.client import OiotClient
-from oiot.job import Job, _generate_key, _get_lock_collection_key
+from oiot.job import Job
 from oiot.exceptions import CollectionKeyIsLocked, JobIsCompleted, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, \
         FailedToRollBack, RollbackCausedByException, JobIsTimedOut, \
@@ -61,7 +61,7 @@ def run_test_basic_job_rollback(client, test_instance):
 
 def run_test_rollback_caused_by_exception(client, test_instance):
     job = Job(client)
-    key = _generate_key()
+    key = Job._generate_key()
     response = client.put('test1', key, {})
     response.raise_for_status()
     response = job.put('test1', key, {'value_testkey': 'value_testvalue'})
@@ -70,7 +70,7 @@ def run_test_rollback_caused_by_exception(client, test_instance):
 
 def run_test_failed_completion(client, test_instance):
     job = Job(client)
-    key = _generate_key()
+    key = Job._generate_key()
     response = client.put('test1', key, {})
     response.raise_for_status()
     response = job.put('test1', key, {'value_testkey': 'value_testvalue'})
@@ -86,7 +86,7 @@ def run_test_failed_completion(client, test_instance):
 
 def run_test_failed_rollback(client, test_instance):
     job = Job(client)
-    key = _generate_key()
+    key = Job._generate_key()
     response = client.put('test1', key, {})
     response.raise_for_status()
     response = job.put('test1', key, {'value_testkey': 'value_testvalue'})
@@ -103,11 +103,11 @@ def run_test_job_timeout(client, test_instance):
     time.sleep(6)
     test_instance.assertRaises(JobIsTimedOut, job.post, 'test2', {})
     test_instance.assertRaises(JobIsTimedOut, job.put, 'test2',
-            _generate_key(), {})
+            Job._generate_key(), {})
     test_instance.assertRaises(JobIsTimedOut, job.get, 'test2',
-            _generate_key())
+            Job._generate_key())
     test_instance.assertRaises(JobIsTimedOut, job.delete, 'test2',
-            _generate_key())
+            Job._generate_key())
     test_instance.assertRaises(JobIsTimedOut, job.complete)
     test_instance.assertRaises(JobIsTimedOut, job.roll_back)
 
@@ -120,7 +120,7 @@ def run_test_job_and_lock_creation_and_removal(client, test_instance):
     response2 = job.post('test2', {})
     _verify_lock_creation(test_instance, job, 'test2', response2.key)
     _verify_job_creation(test_instance, job)
-    test3_key = _generate_key()
+    test3_key = Job._generate_key()
     response3 = job.put('test3', test3_key, {})
     _verify_lock_creation(test_instance, job, 'test3', test3_key)
     job.get('test4', response4.key, response4.ref)
@@ -150,7 +150,7 @@ def run_test_job_and_lock_creation_and_removal2(client, test_instance):
     response2 = job.post('test2', {})
     _verify_lock_creation(test_instance, job, 'test2', response2.key)
     _verify_job_creation(test_instance, job)
-    test3_key = _generate_key()
+    test3_key = Job._generate_key()
     response3 = job.put('test3', test3_key, {})
     _verify_lock_creation(test_instance, job, 'test3', test3_key)
     job.get('test4', response4.key, response4.ref)
@@ -171,7 +171,7 @@ def run_test_job_and_lock_creation_and_removal2(client, test_instance):
     test_instance.assertTrue(was_404_error_caught)
 
 def run_test_verify_operations_and_roll_back(client, test_instance):
-    test3_key = _generate_key()
+    test3_key = Job._generate_key()
     response3 = client.put('test3', test3_key,
             {'value_key3': 'value_value3'})
     response3.raise_for_status()

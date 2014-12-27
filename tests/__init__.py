@@ -2,7 +2,7 @@ from datetime import datetime
 import dateutil
 from oiot.settings import _jobs_collection, _locks_collection, \
         _curators_collection
-from oiot.job import _get_lock_collection_key
+from oiot.job import Job
 from oiot.exceptions import _get_httperror_status_code
 
 _were_collections_cleared = False
@@ -27,7 +27,7 @@ def _verify_job_creation(testinstance, job):
 
 def _verify_lock_creation(testinstance, job, collection, key):
     response = job._client.get(_locks_collection,
-            _get_lock_collection_key(collection, key),
+            Job._get_lock_collection_key(collection, key),
             None, False)
     response.raise_for_status()
     testinstance.assertEqual(response.json['job_id'], job._job_id)

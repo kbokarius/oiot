@@ -7,9 +7,6 @@ from .exceptions import JobIsRolledBack, JobIsFailed, FailedToComplete, \
         FailedToRollBack, RollbackCausedByException, JobIsTimedOut, \
         CollectionKeyIsLocked, JobIsCompleted, _get_httperror_status_code    
 
-from datetime import datetime
-import json
-
 # TODO: Add fields to the roll back exceptions to indicate what the original
 # exception and stack trace was.
 
@@ -23,7 +20,7 @@ class Job:
         Create a Job instance.
         :param client: the client to use
         """
-        self._job_id = _generate_key()
+        self._job_id = Job._generate_key()
         self._timestamp = datetime.utcnow()
         self._client = client
         self._locks = []
@@ -33,6 +30,122 @@ class Job:
         # A job should fail only in the event of an exception during
         # completion or roll-back.
         self.is_failed = False
+
+    @staticmethod
+    def _generate_key():
+        """
+        Generate a random 16 character alphanumeric string.
+        :return: a random 16 character alphanumeric string.
+        """
+        return str(binascii.b2a_hex(os.urandom(8)))
+
+    @staticmethod
+    def _get_lock_collection_key(collection_to_lock, key_to_lock):
+        """
+        Get the key used for the locks collection based on the specified
+        collection name key.
+        :param collection_to_lock: the collection name to lock
+        :param key_to_lock: the key to lock
+        :return: the formatted locks collection key
+        """
+        return collection_to_lock + "-" + str(key_to_lock)
+
+    @staticmethod
+    def _create_and_add_lock(client, collection, key, job_id, timestamp):
+        """
+        Create and add a lock to the locks collection. This will instantiate a
+        lock object, add its details to the locks collection in o.io, and return
+        the lock instance.
+        :param client: the client to use
+        :param collection: the collection name
+        :param key: the key
+        :param job_id: the job ID
+        :param timestamp: the timestamp
+        :return: the created lock
+        """
+        lock = _Lock(job_id, timestamp, datetime.utcnow(),
+                collection, key, None)
+        lock_response = client.put(_locks_collection,
+                Job._get_lock_collection_key(collection, key),
+                json.loads(json.dumps(vars(lock), cls=_Encoder)),
+                False, False)
+        if lock_response.status_code == 412:
+            raise CollectionKeyIsLocked
+        lock_response.raise_for_status()
+        lock.lock_ref = lock_response.ref
+        return lock
+
+    @staticmethod
+    def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
+        """
+        Roll back the specified journal item.
+        :param client: the client to use
+        :param journal_item: the journal item to roll back
+        :param raise_if_timed_out: the method to call if the roll back times out
+        """
+        # Don't attempt to roll-back if the original value and the
+        # new value are the same.
+        if journal_item.original_value == journal_item.new_value:
+            return
+        raise_if_timed_out()
+        was_objected_deleted = journal_item.new_value == _deleted_object_value
+        get_response = client.get(journal_item.collection,
+                journal_item.key, None, False)
+        try:
+            get_response.raise_for_status()
+        except Exception as e:
+            if _get_httperror_status_code(e) == 404:
+                if was_objected_deleted is False:
+                    return
+            else:
+                raise e
+        # Don't attempt to roll-back if the new value does not match
+        # unless the record was deleted by the job.
+        if (was_objected_deleted is False and
+                get_response.json != journal_item.new_value):
+            return
+        # Was there an original value?
+        if journal_item.original_value:
+            # Put back the original value only if the new
+            # value matches or if the record was deleted by
+            # the job.
+            if ((was_objected_deleted and
+                    get_response.status_code == 404) or
+                    (was_objected_deleted is False and
+                    get_response.json == journal_item.new_value)):
+                original_ref = False
+                if was_objected_deleted is False:
+                    original_ref = get_response.ref
+                raise_if_timed_out()
+                try:
+                    put_response = client.put(
+                            journal_item.collection,
+                            journal_item.key,
+                            journal_item.original_value,
+                            original_ref, False)
+                    put_response.raise_for_status()
+                except Exception as e:
+                    # Ignore 412 error if the ref did not match.
+                    if (_get_httperror_status_code(e) == 412):
+                        return
+                    else:
+                        raise e
+        # No original value indicates that a new record was
+        # added and should be deleted.
+        else:
+            raise_if_timed_out()
+            try:
+                delete_response = client.delete(
+                        journal_item.collection,
+                        journal_item.key,
+                        get_response.ref, False)
+                delete_response.raise_for_status()
+            except Exception as e:
+                # Ignore 412 error if the ref did not match.
+                if (_get_httperror_status_code(e) == 412):
+                    return
+                else:
+                    raise e
 
     def _verify_job_is_active(self):
         """
@@ -63,7 +176,7 @@ class Job:
         for lock in self._locks:
             self._raise_if_job_is_timed_out()
             response = self._client.delete(_locks_collection,
-                    _get_lock_collection_key(lock.collection, lock.key),
+                    Job._get_lock_collection_key(lock.collection, lock.key),
                     lock.lock_ref, False)
             response.raise_for_status()
         self._locks = []
@@ -90,7 +203,7 @@ class Job:
             if lock.collection == collection and lock.key == key:
                 return lock
         self._raise_if_job_is_timed_out()
-        lock = _create_and_add_lock(self._client, collection, key,
+        lock = Job._create_and_add_lock(self._client, collection, key,
                 self._job_id, self._timestamp)
         self._locks.append(lock)
         return lock
@@ -143,7 +256,7 @@ class Job:
         :param ref: the ref
         :return: the operation's response
         """
-        key = _generate_key()
+        key = Job._generate_key()
         return self.put(collection, key, value)
 
     def put(self, collection, key, value, ref = None):
@@ -216,7 +329,7 @@ class Job:
         self._verify_job_is_active()
         try:
             for journal_item in self._journal:
-                _roll_back_journal_item(self._client, journal_item,
+                Job._roll_back_journal_item(self._client, journal_item,
                         self._raise_if_job_is_timed_out)
             self._remove_job()
             self._remove_locks()
@@ -306,115 +419,3 @@ class _Encoder(json.JSONEncoder):
         elif isinstance(obj, uuid.UUID):
             return str(obj)
         return json.JSONEncoder.default(self, obj)
-
-def _generate_key():
-    """
-    Generate a random 16 character alphanumeric string.
-    :return: a random 16 character alphanumeric string.
-    """
-    return str(binascii.b2a_hex(os.urandom(8)))
-
-def _get_lock_collection_key(collection_to_lock, key_to_lock):
-    """
-    Get the key used for the locks collection based on the specified
-    collection name key.
-    :param collection_to_lock: the collection name to lock
-    :param key_to_lock: the key to lock
-    :return: the formatted locks collection key
-    """
-    return collection_to_lock + "-" + str(key_to_lock)
-
-def _create_and_add_lock(client, collection, key, job_id, timestamp):
-    """
-    Create and add a lock to the locks collection. This will instantiate a
-    lock object, add its details to the locks collection in o.io, and return
-    the lock instance.
-    :param client: the client to use
-    :param collection: the collection name
-    :param key: the key
-    :param job_id: the job ID
-    :param timestamp: the timestamp
-    :return: the created lock
-    """
-    lock = _Lock(job_id, timestamp, datetime.utcnow(),
-            collection, key, None)
-    lock_response = client.put(_locks_collection,
-            _get_lock_collection_key(collection, key),
-            json.loads(json.dumps(vars(lock), cls=_Encoder)),
-            False, False)
-    if lock_response.status_code == 412:
-        raise CollectionKeyIsLocked
-    lock_response.raise_for_status()
-    lock.lock_ref = lock_response.ref
-    return lock
-
-def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
-    """
-    Roll back the specified journal item.
-    :param client: the client to use
-    :param journal_item: the journal item to roll back
-    :param raise_if_timed_out: the method to call if the roll back times out
-    """
-    # Don't attempt to roll-back if the original value and the
-    # new value are the same.
-    if journal_item.original_value == journal_item.new_value:
-        return
-    raise_if_timed_out()
-    was_objected_deleted = journal_item.new_value == _deleted_object_value
-    get_response = client.get(journal_item.collection,
-            journal_item.key, None, False)
-    try:
-        get_response.raise_for_status()
-    except Exception as e:
-        if _get_httperror_status_code(e) == 404:
-            if was_objected_deleted is False:
-                return
-        else:
-            raise e
-    # Don't attempt to roll-back if the new value does not match
-    # unless the record was deleted by the job.
-    if (was_objected_deleted is False and
-            get_response.json != journal_item.new_value):
-        return
-    # Was there an original value?
-    if journal_item.original_value:
-        # Put back the original value only if the new
-        # value matches or if the record was deleted by
-        # the job.
-        if ((was_objected_deleted and
-                get_response.status_code == 404) or
-                (was_objected_deleted is False and
-                get_response.json == journal_item.new_value)):
-            original_ref = False
-            if was_objected_deleted is False:
-                original_ref = get_response.ref
-            raise_if_timed_out()
-            try:
-                put_response = client.put(
-                        journal_item.collection,
-                        journal_item.key,
-                        journal_item.original_value,
-                        original_ref, False)
-                put_response.raise_for_status()
-            except Exception as e:
-                # Ignore 412 error if the ref did not match.
-                if (_get_httperror_status_code(e) == 412):
-                    return
-                else:
-                    raise e
-    # No original value indicates that a new record was
-    # added and should be deleted.
-    else:
-        raise_if_timed_out()
-        try:
-            delete_response = client.delete(
-                    journal_item.collection,
-                    journal_item.key,
-                    get_response.ref, False)
-            delete_response.raise_for_status()
-        except Exception as e:
-            # Ignore 412 error if the ref did not match.
-            if (_get_httperror_status_code(e) == 412):
-                return
-            else:
-                raise e

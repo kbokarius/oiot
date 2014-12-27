@@ -1,7 +1,7 @@
 from porc import Client
 from datetime import datetime
 from .settings import _locks_collection 
-from .job import _create_and_add_lock, _get_lock_collection_key
+from .job import Job
 from .exceptions import CollectionKeyIsLocked
 
 class OiotClient(Client):
@@ -23,7 +23,7 @@ class OiotClient(Client):
             # Ignore exceptions and do not raise for status.
             # If necessary the curator will clean up the orphaned lock.
             super(self.__class__, self).delete(_locks_collection,
-                    _get_lock_collection_key(lock.collection, lock.key),
+                    Job._get_lock_collection_key(lock.collection, lock.key),
                     lock.lock_ref)
         except:
             pass
@@ -41,7 +41,7 @@ class OiotClient(Client):
         lock = None
         response = None
         if raise_if_locked:
-            lock = _create_and_add_lock(self, args[0], args[1], None,
+            lock = Job._create_and_add_lock(self, args[0], args[1], None,
                     datetime.utcnow())
         try:
             response = operation(*args)

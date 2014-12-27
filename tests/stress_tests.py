@@ -2,7 +2,7 @@ import os, sys, unittest, time
 from oiot.settings import _locks_collection, _jobs_collection, \
         _curator_heartbeat_timeout_in_ms, _curator_inactivity_delay_in_ms
 from oiot.client import OiotClient
-from oiot.job import Job, _generate_key, _get_lock_collection_key
+from oiot.job import Job
 from oiot.curator import Curator
 from oiot.exceptions import CollectionKeyIsLocked, JobIsCompleted, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, FailedToRollBack, \

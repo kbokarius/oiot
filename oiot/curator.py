@@ -4,8 +4,7 @@ from .settings import _curators_collection, _locks_collection, \
         _curator_heartbeat_timeout_in_ms, _jobs_collection, \
         _curator_heartbeat_interval_in_ms, _max_job_time_in_ms, \
         _additional_timeout_wait_in_ms
-from .job import _JournalItem, _Lock, _get_lock_collection_key, \
-        _Encoder, _roll_back_journal_item
+from .job import Job, _JournalItem, _Lock, _Encoder
 from .exceptions import _format_exception, _CuratorNoLongerActive, \
         _get_httperror_status_code
 
@@ -151,8 +150,8 @@ class Curator(Client):
                                 item['collection'], item['key'],
                                 item['original_value'],
                                 item['new_value'])
-                        _roll_back_journal_item(self._client, journal_item,
-                                self._try_send_heartbeat)
+                        Job._roll_back_journal_item(self._client,
+                                journal_item, self._try_send_heartbeat)
                     self._append_to_removed_job_ids(job['path']['key'])
                     self._try_send_heartbeat()
                     response = self._client.delete(_jobs_collection,
