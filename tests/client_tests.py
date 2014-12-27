@@ -19,11 +19,11 @@ class ClientTests(unittest.TestCase):
                 super(self._client.__class__, self._client).put, 'test1',
                 _generate_key(), {}, None)
         response.raise_for_status()
-        self._client.get('test1', response.key, None, 
+        self._client.get('test1', response.key, None,
                 False).raise_for_status()
         self.assertEqual(self._client.get(_locks_collection,
                 _get_lock_collection_key(
-                'test1', response.key), None, 
+                'test1', response.key), None,
                 False).status_code, 404)
 
     def test_add_and_remove_lock(self):
@@ -38,25 +38,25 @@ class ClientTests(unittest.TestCase):
                 _get_lock_collection_key(
                 'test1', key), None,
                 False).status_code, 404)
-    
+
     def test_ignore_locks(self):
         job = Job(self._client)
         response = job.post('test1', {})
         self._client.put('test1', response.key, {}, None,
                 False).raise_for_status()
-        self._client.get('test1', response.key, None, 
+        self._client.get('test1', response.key, None,
                 False).raise_for_status()
-        self._client.delete('test1', response.key, None, 
+        self._client.delete('test1', response.key, None,
                 False).raise_for_status()
 
     def test_collection_key_locked(self):
         job = Job(self._client)
         response = job.post('test1', {})
-        self.assertRaises(CollectionKeyIsLocked, self._client.put, 'test1', 
+        self.assertRaises(CollectionKeyIsLocked, self._client.put, 'test1',
                 response.key, {})
         self.assertRaises(CollectionKeyIsLocked, self._client.get,
                 'test1', response.key)
-        self.assertRaises(CollectionKeyIsLocked, self._client.delete, 
+        self.assertRaises(CollectionKeyIsLocked, self._client.delete,
                 'test1', response.key)
 
     # TODO: Ensure that all applicable methods raise CollectionKeyIsLocked.

@@ -56,7 +56,7 @@ class StressTests(unittest.TestCase):
     def run_curator(self, curator):
         try:
             curator.run()
-        except Exception as e:            
+        except Exception as e:
             self._curator_thread_exception = _format_exception(e)
 
     def _run_curator_tests(self, index):
@@ -88,7 +88,7 @@ class StressTests(unittest.TestCase):
                 run_test_basic_job_rollback(client, self)
                 run_test_rollback_caused_by_exception(client, self)
                 run_test_failed_completion(client, self)
-                run_test_failed_rollback(client, self)          
+                run_test_failed_rollback(client, self)
                 run_test_job_and_lock_creation_and_removal(client, self)
                 run_test_job_and_lock_creation_and_removal2(client, self)
                 run_test_verify_operations_and_roll_back(client, self)
@@ -116,14 +116,14 @@ class StressTests(unittest.TestCase):
         for index in range(self._number_of_curator_test_threads_threads):
             time.sleep(3)
             self._finished_curator_tests.append(False)
-            threading.Thread(target = self._run_curator_tests, 
+            threading.Thread(target = self._run_curator_tests,
                     args = (index,)).start()
         for index in range(self._number_of_job_test_threads):
             time.sleep(3)
             self._finished_job_tests.append(False)
-            threading.Thread(target = self._run_job_tests, 
+            threading.Thread(target = self._run_job_tests,
                     args = (index,)).start()
-        while ((datetime.utcnow() - start_time).total_seconds() < 
+        while ((datetime.utcnow() - start_time).total_seconds() <
                 self._minutes_to_run * 60.0):
             if self._curator_thread_exception:
                 self._fail(self._curator_thread_exception)
@@ -135,7 +135,7 @@ class StressTests(unittest.TestCase):
         print('Turning off test threads...')
         self._should_run_curator_tests = False
         self._should_run_job_tests = False
-        print('Waiting for test threads to finished...')            
+        print('Waiting for test threads to finished...')
         all_test_group_threads_finished = False
         while (all_test_group_threads_finished is False):
             time.sleep(1)

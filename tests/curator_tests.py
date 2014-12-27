@@ -1,7 +1,7 @@
 import os, sys, unittest, time
 from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, \
-        FailedToRollBack, _locks_collection, _jobs_collection, \
+        FailedToRollBack, _jobs_collection, _locks_collection, \
         _generate_key, RollbackCausedByException, JobIsTimedOut, \
         Job, _curator_heartbeat_timeout_in_ms, \
         _additional_timeout_wait_in_ms, _get_lock_collection_key, \
@@ -14,11 +14,11 @@ from subprocess import Popen
 import threading
 
 def run_test_curation_of_timed_out_jobs(client, test_instance):
-    test3_key = _generate_key()        
+    test3_key = _generate_key()
     response3 = client.put('test3', test3_key,
             {'value_key3': 'value_value3'})
     response3.raise_for_status()
-    response = client.get('test3', test3_key, 
+    response = client.get('test3', test3_key,
             response3.ref, False)
     response.raise_for_status()
     test_instance.assertEqual({'value_key3': 'value_value3'}, response.json)
@@ -32,11 +32,11 @@ def run_test_curation_of_timed_out_jobs(client, test_instance):
     response3 = job.put('test3', test3_key,
             {'value_newkey3': 'value_newvalue3'}, response3.ref)
     response3.raise_for_status()
-    response = client.get('test3', test3_key, 
+    response = client.get('test3', test3_key,
             response3.ref, False)
     response.raise_for_status()
     test_instance.assertEqual({'value_newkey3': 'value_newvalue3'},
-            response.json)    
+            response.json)
     response4 = client.post('test4', {'value_key4': 'value_value4'})
     response4.raise_for_status()
     response = job.delete('test4', response4.key)
@@ -53,7 +53,7 @@ def run_test_curation_of_timed_out_jobs(client, test_instance):
     response = client.get('test4', response4.key, None, False)
     response.raise_for_status()
     test_instance.assertEqual({'value_key4': 'value_value4'}, response.json)
-    response = client.get(_jobs_collection, job._job_id, 
+    response = client.get(_jobs_collection, job._job_id,
             None, False)
     test_instance.assertEqual(response.status_code, 404)
     for lock in job._locks:
@@ -89,7 +89,7 @@ def run_test_changed_records_are_not_rolled_back(client, test_instance):
     response3 = client.put('test3', test3_key,
             {'value_key3': 'value_value3'})
     response3.raise_for_status()
-    response = client.get('test3', test3_key, 
+    response = client.get('test3', test3_key,
             response3.ref, False)
     response.raise_for_status()
     test_instance.assertEqual({'value_key3': 'value_value3'}, response.json)
@@ -107,7 +107,7 @@ def run_test_changed_records_are_not_rolled_back(client, test_instance):
     response3 = job.put('test3', test3_key,
             {'value_newkey3': 'value_newvalue3'}, response3.ref)
     response3.raise_for_status()
-    response = client.get('test3', test3_key, 
+    response = client.get('test3', test3_key,
             response3.ref, False)
     response.raise_for_status()
     test_instance.assertEqual({'value_newkey3': 'value_newvalue3'},

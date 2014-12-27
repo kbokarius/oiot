@@ -1,16 +1,17 @@
 from porc import Client
-from . import _locks_collection, _get_lock_collection_key, \
-        CollectionKeyIsLocked, _create_and_add_lock
 from datetime import datetime
+from . import CollectionKeyIsLocked, _create_and_add_lock, \
+        _get_lock_collection_key
+from .settings import _locks_collection 
 
 class OiotClient(Client):
     """
     The oiot implementation of porc.Client. Used for ensuring that locked
     o.io objects cannot be read or written to.
     """
-    def __init__(self, api_key, custom_url = None, 
+    def __init__(self, api_key, custom_url = None,
             use_async = False, **kwargs):
-        super(self.__class__, self).__init__(api_key, custom_url = None, 
+        super(self.__class__, self).__init__(api_key, custom_url = None,
                 use_async = False, **kwargs)
 
     def _remove_lock(self, lock):
@@ -21,8 +22,8 @@ class OiotClient(Client):
         try:
             # Ignore exceptions and do not raise for status.
             # If necessary the curator will clean up the orphaned lock.
-            super(self.__class__, self).delete(_locks_collection, 
-                    _get_lock_collection_key(lock.collection, lock.key), 
+            super(self.__class__, self).delete(_locks_collection,
+                    _get_lock_collection_key(lock.collection, lock.key),
                     lock.lock_ref)
         except:
             pass
@@ -39,7 +40,7 @@ class OiotClient(Client):
         """
         lock = None
         response = None
-        if raise_if_locked:    
+        if raise_if_locked:
             lock = _create_and_add_lock(self, args[0], args[1], None,
                     datetime.utcnow())
         try:
@@ -60,7 +61,7 @@ class OiotClient(Client):
         return self._lock_key_and_execute_operation(raise_if_locked,
                 super(self.__class__, self).get, collection, key, ref)
 
-    def delete(self, collection, key = None, ref = None, 
+    def delete(self, collection, key = None, ref = None,
                 raise_if_locked = True):
         # Deleting an entire collection does not lock the collection.
         if key is None:

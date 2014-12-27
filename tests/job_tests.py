@@ -15,7 +15,7 @@ def verify_locked_exception_is_raised(test_instance, operation, *args):
         operation(*args)
         test_instance.fail('RollbackCausedByException not raised')
     except Exception as e:
-        test_instance.assertEqual(e.__class__.__name__, 
+        test_instance.assertEqual(e.__class__.__name__,
                 'RollbackCausedByException')
         test_instance.assertEqual(e.exception_causing_rollback.
                 __class__.__name__, 'CollectionKeyIsLocked')
@@ -28,7 +28,7 @@ def run_test_job1(client):
     response3.raise_for_status()
     # Create a new job.
     job = Job(client)
-    # Add a record using the job thereby locking the record and journaling 
+    # Add a record using the job thereby locking the record and journaling
     # the work.
     response2 = job.post('test2', {'testvalue2_key' : 'testvalue2_value'})
     job.get('test3', response3.key, response3.ref)
@@ -40,7 +40,7 @@ def run_test_job1(client):
 
 def run_test_basic_job_completion(client, test_instance):
     job = run_test_job1(client)
-    job.complete() 
+    job.complete()
     test_instance.assertRaises(JobIsCompleted, job.post, None, None)
     test_instance.assertRaises(JobIsCompleted, job.put, None, None, None)
     test_instance.assertRaises(JobIsCompleted, job.get, None, None, None)
@@ -50,7 +50,7 @@ def run_test_basic_job_completion(client, test_instance):
 
 def run_test_basic_job_rollback(client, test_instance):
     job = run_test_job1(client)
-    job.roll_back() 
+    job.roll_back()
     test_instance.assertRaises(JobIsRolledBack, job.post, None, None)
     test_instance.assertRaises(JobIsRolledBack, job.put, None, None, None)
     test_instance.assertRaises(JobIsRolledBack, job.get, None, None, None)
@@ -64,7 +64,7 @@ def run_test_rollback_caused_by_exception(client, test_instance):
     response = client.put('test1', key, {})
     response.raise_for_status()
     response = job.put('test1', key, {'value_testkey': 'value_testvalue'})
-    test_instance.assertRaises(RollbackCausedByException, job.put, 'test1', 
+    test_instance.assertRaises(RollbackCausedByException, job.put, 'test1',
             key, None)
 
 def run_test_failed_completion(client, test_instance):
@@ -101,20 +101,20 @@ def run_test_job_timeout(client, test_instance):
     job = Job(client)
     time.sleep(6)
     test_instance.assertRaises(JobIsTimedOut, job.post, 'test2', {})
-    test_instance.assertRaises(JobIsTimedOut, job.put, 'test2', 
+    test_instance.assertRaises(JobIsTimedOut, job.put, 'test2',
             _generate_key(), {})
-    test_instance.assertRaises(JobIsTimedOut, job.get, 'test2', 
+    test_instance.assertRaises(JobIsTimedOut, job.get, 'test2',
             _generate_key())
-    test_instance.assertRaises(JobIsTimedOut, job.delete, 'test2', 
+    test_instance.assertRaises(JobIsTimedOut, job.delete, 'test2',
             _generate_key())
     test_instance.assertRaises(JobIsTimedOut, job.complete)
     test_instance.assertRaises(JobIsTimedOut, job.roll_back)
 
 def run_test_job_and_lock_creation_and_removal(client, test_instance):
     response4 = client.post('test4', {'testvalue4_key' : 'testvalue4_value'})
-    response4.raise_for_status()    
+    response4.raise_for_status()
     response5 = client.post('test5', {'testvalue5_key' : 'testvalue5_value'})
-    response5.raise_for_status()        
+    response5.raise_for_status()
     job = Job(client)
     response2 = job.post('test2', {})
     _verify_lock_creation(test_instance, job, 'test2', response2.key)
@@ -140,11 +140,11 @@ def run_test_job_and_lock_creation_and_removal(client, test_instance):
             was_404_error_caught = True
     test_instance.assertTrue(was_404_error_caught)
 
-def run_test_job_and_lock_creation_and_removal2(client, test_instance):    
+def run_test_job_and_lock_creation_and_removal2(client, test_instance):
     response4 = client.post('test4', {'testvalue4_key' : 'testvalue4_value'})
-    response4.raise_for_status()    
+    response4.raise_for_status()
     response5 = client.post('test5', {'testvalue5_key' : 'testvalue5_value'})
-    response5.raise_for_status()    
+    response5.raise_for_status()
     job = Job(client)
     response2 = job.post('test2', {})
     _verify_lock_creation(test_instance, job, 'test2', response2.key)
@@ -188,11 +188,11 @@ def run_test_verify_operations_and_roll_back(client, test_instance):
     response3.raise_for_status()
     response = client.get('test3', test3_key, response3.ref, False)
     response.raise_for_status()
-    test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, 
+    test_instance.assertEqual({'value_newkey3': 'value_newvalue3'},
             response.json)
     response = job.get('test3', test3_key, response3.ref)
     response.raise_for_status()
-    test_instance.assertEqual({'value_newkey3': 'value_newvalue3'}, 
+    test_instance.assertEqual({'value_newkey3': 'value_newvalue3'},
             response.json)
     response4 = client.post('test4', {'value_key4': 'value_value4'})
     response4.raise_for_status()
@@ -209,9 +209,9 @@ def run_test_verify_operations_and_roll_back(client, test_instance):
     response.raise_for_status()
     test_instance.assertEqual({'value_key4': 'value_value4'}, response.json)
 
-def run_test_exception_raised_when_key_locked(client, test_instance):        
+def run_test_exception_raised_when_key_locked(client, test_instance):
     job = Job(client)
-    response2 = job.post('test2', {})    
+    response2 = job.post('test2', {})
     verify_locked_exception_is_raised(test_instance, Job(client).put,
             'test2', response2.key, {})
     verify_locked_exception_is_raised(test_instance, Job(client).get,
@@ -233,16 +233,16 @@ class JobTests(unittest.TestCase):
             time.sleep(4)
             _were_collections_cleared = True
 
-    def test_basic_job_completion(self):            
+    def test_basic_job_completion(self):
         run_test_basic_job_completion(self._client, self)
 
-    def test_basic_job_rollback(self):    
+    def test_basic_job_rollback(self):
         run_test_basic_job_rollback(self._client, self)
 
-    def test_rollback_caused_by_exception(self):    
+    def test_rollback_caused_by_exception(self):
         run_test_rollback_caused_by_exception(self._client, self)
 
-    def test_failed_completion(self):    
+    def test_failed_completion(self):
         run_test_failed_completion(self._client, self)
 
     def test_failed_rollback(self):

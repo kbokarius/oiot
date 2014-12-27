@@ -1,11 +1,12 @@
 import sys, traceback
-from . import _locks_collection, _jobs_collection, _get_lock_collection_key, \
-        _generate_key, _Lock, _JournalItem, _Encoder, JobIsCompleted, \
+from . import _generate_key, _Lock, _JournalItem, _Encoder, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, \
         FailedToRollBack, RollbackCausedByException, \
-        _max_job_time_in_ms, JobIsTimedOut, _roll_back_journal_item, \
-        CollectionKeyIsLocked, _deleted_object_value, \
-        _create_and_add_lock
+        JobIsTimedOut, _roll_back_journal_item, \
+        CollectionKeyIsLocked, JobIsCompleted, \
+        _create_and_add_lock, _get_lock_collection_key
+from .settings import _locks_collection, _jobs_collection, \
+        _max_job_time_in_ms, _deleted_object_value
 
 from datetime import datetime
 import json

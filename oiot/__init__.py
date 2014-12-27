@@ -2,36 +2,6 @@ import os, sys, traceback, binascii
 import json, random, string, datetime, uuid
 from datetime import datetime
 
-# collection name to use for the locks collection
-_locks_collection = 'oiot-locks'
-
-# collection name to use for the jobs collection
-_jobs_collection = 'oiot-jobs'
-
-# collection name to use for the curators collection
-_curators_collection = 'oiot-curators'
-
-# collection key name to use for the active curator
-_active_curator_key = 'active'
-
-# minimum heartbeat interval for curators
-_curator_heartbeat_interval_in_ms = 500
-
-# elapsed time before a curator times out and another should take its place
-_curator_heartbeat_timeout_in_ms = 7500
-
-# time an inactive curator should sleep between status checks
-_curator_inactivity_delay_in_ms = 3000
-
-# elapsed time before a job is timed out and automatically rolled back
-_max_job_time_in_ms = 5000
-
-# additional elapsed time used by active curators before rolling back jobs
-_additional_timeout_wait_in_ms = 1000
-
-# value used by journal items to indicate a delete operation was performed
-_deleted_object_value = {"deleted": "{A0981677-7933-4A5C-A141-9B40E60BD411}"}
-
 def _generate_key():
     """
     Generate a random 16 character alphanumeric string.
@@ -80,11 +50,11 @@ def _create_and_add_lock(client, collection, key, job_id, timestamp):
     :param timestamp: the timestamp
     :return: the created lock
     """
-    lock = _Lock(job_id, timestamp, datetime.utcnow(), 
+    lock = _Lock(job_id, timestamp, datetime.utcnow(),
             collection, key, None)
-    lock_response = client.put(_locks_collection, 
-            _get_lock_collection_key(collection, key), 
-            json.loads(json.dumps(vars(lock), cls=_Encoder)), 
+    lock_response = client.put(_locks_collection,
+            _get_lock_collection_key(collection, key),
+            json.loads(json.dumps(vars(lock), cls=_Encoder)),
             False, False)
     if lock_response.status_code == 412:
         raise CollectionKeyIsLocked
@@ -107,7 +77,7 @@ def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
     was_objected_deleted = journal_item.new_value == _deleted_object_value
     get_response = client.get(journal_item.collection,
             journal_item.key, None, False)
-    try: 
+    try:
         get_response.raise_for_status()
     except Exception as e:
         if _get_httperror_status_code(e) == 404:
@@ -123,21 +93,21 @@ def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
     # Was there an original value?
     if journal_item.original_value:
         # Put back the original value only if the new
-        # value matches or if the record was deleted by 
+        # value matches or if the record was deleted by
         # the job.
         if ((was_objected_deleted and
-                get_response.status_code == 404) or 
+                get_response.status_code == 404) or
                 (was_objected_deleted is False and
                 get_response.json == journal_item.new_value)):
             original_ref = False
             if was_objected_deleted is False:
                 original_ref = get_response.ref
             raise_if_timed_out()
-            try: 
+            try:
                 put_response = client.put(
                         journal_item.collection,
-                        journal_item.key, 
-                        journal_item.original_value, 
+                        journal_item.key,
+                        journal_item.original_value,
                         original_ref, False)
                 put_response.raise_for_status()
             except Exception as e:
@@ -146,14 +116,14 @@ def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
                     return
                 else:
                     raise e
-    # No original value indicates that a new record was 
+    # No original value indicates that a new record was
     # added and should be deleted.
     else:
         raise_if_timed_out()
         try:
             delete_response = client.delete(
                     journal_item.collection,
-                    journal_item.key, 
+                    journal_item.key,
                     get_response.ref, False)
             delete_response.raise_for_status()
         except Exception as e:
@@ -329,3 +299,9 @@ class CuratorNoLongerActive(Exception):
 from .client import OiotClient
 from .job import Job
 from .curator import Curator
+from .settings import _locks_collection, _jobs_collection, \
+        _curators_collection, _active_curator_key, \
+        _curator_heartbeat_interval_in_ms, \
+        _curator_heartbeat_timeout_in_ms, \
+        _curator_inactivity_delay_in_ms, _max_job_time_in_ms, \
+        _additional_timeout_wait_in_ms, _deleted_object_value
