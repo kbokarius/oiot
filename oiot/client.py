@@ -1,8 +1,8 @@
 from porc import Client
 from datetime import datetime
-from . import CollectionKeyIsLocked, _create_and_add_lock, \
-        _get_lock_collection_key
 from .settings import _locks_collection 
+from .job import _create_and_add_lock, _get_lock_collection_key
+from .exceptions import CollectionKeyIsLocked
 
 class OiotClient(Client):
     """

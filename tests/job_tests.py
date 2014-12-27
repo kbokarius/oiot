@@ -1,11 +1,12 @@
 import os, sys, unittest, time, dateutil, json
 from datetime import datetime
-from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
+from oiot.settings import _jobs_collection, _locks_collection
+from oiot.client import OiotClient
+from oiot.job import Job, _generate_key, _get_lock_collection_key
+from oiot.exceptions import CollectionKeyIsLocked, JobIsCompleted, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, \
-        FailedToRollBack, _locks_collection, _jobs_collection, \
-        _generate_key, RollbackCausedByException, JobIsTimedOut, \
-        _get_lock_collection_key, _get_httperror_status_code, \
-        _jobs_collection
+        FailedToRollBack, RollbackCausedByException, JobIsTimedOut, \
+        _get_httperror_status_code
 from . import _were_collections_cleared, _oio_api_key, \
         _verify_job_creation, _clear_test_collections, \
         _verify_lock_creation, _verify_lock_deletion

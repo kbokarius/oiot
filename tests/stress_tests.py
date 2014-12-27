@@ -1,16 +1,16 @@
 import os, sys, unittest, time
-from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
-        JobIsRolledBack, JobIsFailed, FailedToComplete, \
-        FailedToRollBack, _locks_collection, _jobs_collection, \
-        _generate_key, RollbackCausedByException, JobIsTimedOut, \
-        Job, _curator_heartbeat_timeout_in_ms, \
-        _curator_inactivity_delay_in_ms, _get_lock_collection_key, \
-        Curator, _format_exception
+from oiot.settings import _locks_collection, _jobs_collection, \
+        _curator_heartbeat_timeout_in_ms, _curator_inactivity_delay_in_ms
+from oiot.client import OiotClient
+from oiot.job import Job, _generate_key, _get_lock_collection_key
+from oiot.curator import Curator
+from oiot.exceptions import CollectionKeyIsLocked, JobIsCompleted, \
+        JobIsRolledBack, JobIsFailed, FailedToComplete, FailedToRollBack, \
+        RollbackCausedByException, JobIsTimedOut, _format_exception
 from . import _were_collections_cleared, _oio_api_key, \
         _verify_job_creation, _clear_test_collections, \
-        _verify_lock_creation, run_test_curation_of_timed_out_jobs, \
-        run_test_curation_of_timed_out_locks, run_test_job_timeout, \
-        run_test_changed_records_are_not_rolled_back, \
+        _verify_lock_creation
+from .job_tests import run_test_job_timeout, \
         run_test_basic_job_completion, run_test_basic_job_rollback, \
         run_test_rollback_caused_by_exception, \
         run_test_failed_completion, run_test_failed_rollback, \
@@ -18,6 +18,10 @@ from . import _were_collections_cleared, _oio_api_key, \
         run_test_job_and_lock_creation_and_removal2, \
         run_test_verify_operations_and_roll_back, \
         run_test_exception_raised_when_key_locked
+from .curator_tests import run_test_curation_of_timed_out_jobs, \
+        run_test_curation_of_timed_out_locks, \
+        run_test_changed_records_are_not_rolled_back
+
 from subprocess import Popen
 from datetime import datetime
 import threading

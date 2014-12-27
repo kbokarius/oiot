@@ -1,7 +1,9 @@
-from oiot import _jobs_collection, _locks_collection, _curators_collection, \
-        _get_lock_collection_key, _get_httperror_status_code
 from datetime import datetime
 import dateutil
+from oiot.settings import _jobs_collection, _locks_collection, \
+        _curators_collection
+from oiot.job import _get_lock_collection_key
+from oiot.exceptions import _get_httperror_status_code
 
 _were_collections_cleared = False
 _oio_api_key = '69b4329e-990e-4969-b0ec-b7ef680fd32b'
@@ -40,14 +42,3 @@ def _verify_lock_deletion(test_instance, job, collection, key):
         if _get_httperror_status_code(e) == 404:
             was_404_error_caught = True
     test_instance.assertTrue(was_404_error_caught)
-
-from .curator_tests import run_test_curation_of_timed_out_jobs, \
-        run_test_curation_of_timed_out_locks, \
-        run_test_changed_records_are_not_rolled_back
-from .job_tests import run_test_basic_job_completion, \
-        run_test_basic_job_rollback, run_test_rollback_caused_by_exception, \
-        run_test_failed_completion, run_test_failed_rollback, \
-        run_test_job_timeout, run_test_job_and_lock_creation_and_removal, \
-        run_test_job_and_lock_creation_and_removal2, \
-        run_test_verify_operations_and_roll_back, \
-        run_test_exception_raised_when_key_locked

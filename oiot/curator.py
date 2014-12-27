@@ -1,17 +1,13 @@
 from porc import Client
-from . import _get_lock_collection_key, \
-        _Encoder, \
-        _ActiveCuratorDetails, \
-        _get_httperror_status_code, \
-        _format_exception, _JournalItem, _Lock, \
-        _roll_back_journal_item, \
-        CuratorNoLongerActive
-
 from .settings import _curators_collection, _locks_collection, \
         _active_curator_key, _curator_inactivity_delay_in_ms, \
         _curator_heartbeat_timeout_in_ms, _jobs_collection, \
-        _curator_heartbeat_interval_in_ms, \
-        _additional_timeout_wait_in_ms, _max_job_time_in_ms
+        _curator_heartbeat_interval_in_ms, _max_job_time_in_ms, \
+        _additional_timeout_wait_in_ms
+from .job import _JournalItem, _Lock, _get_lock_collection_key, \
+        _Encoder, _roll_back_journal_item
+from .exceptions import _format_exception, _CuratorNoLongerActive, \
+        _get_httperror_status_code
 
 # TODO: Log unexpected exceptions locally and to 'oiot-errors'
 # TODO: What to do if a job or journal is corrupt and can't be rolled back?
@@ -81,7 +77,7 @@ class Curator(Client):
             # A 412 error indicates that another curator has become active.
             if (_get_httperror_status_code(e) == 412):
                 if self._is_active:
-                    raise CuratorNoLongerActive
+                    raise _CuratorNoLongerActive
                 return False
             else:
                 raise e
@@ -92,7 +88,7 @@ class Curator(Client):
         if ((datetime.utcnow() - self._last_heartbeat_time).
                 total_seconds() * 1000.0 > _curator_heartbeat_timeout_in_ms):
             if self._is_active:
-                raise CuratorNoLongerActive
+                raise _CuratorNoLongerActive
             return False
         return True
 
@@ -162,7 +158,7 @@ class Curator(Client):
                     response = self._client.delete(_jobs_collection,
                             job['path']['key'], None, False)
                     response.raise_for_status()
-            except CuratorNoLongerActive:
+            except _CuratorNoLongerActive:
                 raise
             # TODO: Change general exception catch to catch
             # specific exceptions.
@@ -194,7 +190,7 @@ class Curator(Client):
                                 lock['path']['key'], lock['path']['ref'],
                                 False)
                         response.raise_for_status()
-            except CuratorNoLongerActive:
+            except _CuratorNoLongerActive:
                 raise
             # TODO: Change general exception catch to catch
             # specific exceptions.
@@ -212,8 +208,23 @@ class Curator(Client):
                 if self._determine_active_status():
                     self._is_active = True
                     if self._curate() is False:
-                        time.sleep(_curator_heartbeat_interval_in_ms / 2.0 / 1000.0)
+                        time.sleep(_curator_heartbeat_interval_in_ms
+                                / 2.0 / 1000.0)
                     continue
-            except CuratorNoLongerActive:
+            except _CuratorNoLongerActive:
                 pass
             self._make_inactive_and_sleep()
+
+
+class _ActiveCuratorDetails(object):
+    """
+    Represents the details about the currently active curator.
+    """
+    def __init__(self, curator_id = None, timestamp = None):
+        """
+        Create an ActiveCuratorDetails instance.
+        :param curator_id: the curator ID
+        :param timestamp: the heartbeat timestamp
+        """
+        self.curator_id = curator_id
+        self.timestamp = timestamp

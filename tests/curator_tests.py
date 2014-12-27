@@ -1,17 +1,17 @@
 import os, sys, unittest, time
-from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
-        JobIsRolledBack, JobIsFailed, FailedToComplete, \
-        FailedToRollBack, _jobs_collection, _locks_collection, \
-        _generate_key, RollbackCausedByException, JobIsTimedOut, \
-        Job, _curator_heartbeat_timeout_in_ms, \
-        _additional_timeout_wait_in_ms, _get_lock_collection_key, \
-        Curator, _generate_key, _max_job_time_in_ms
-from . import _were_collections_cleared, _oio_api_key, \
-        _verify_job_creation, _clear_test_collections, \
-        _verify_lock_creation
 from datetime import datetime
 from subprocess import Popen
 import threading
+from oiot import OiotClient, Job, CollectionKeyIsLocked, JobIsCompleted, \
+        JobIsRolledBack, JobIsFailed, FailedToComplete, Job, Curator, \
+        FailedToRollBack, RollbackCausedByException, JobIsTimedOut
+from oiot.settings import _curator_heartbeat_timeout_in_ms, \
+        _additional_timeout_wait_in_ms, _max_job_time_in_ms, \
+        _jobs_collection, _locks_collection
+from oiot.job import _generate_key, _get_lock_collection_key
+from . import _were_collections_cleared, _oio_api_key, \
+        _verify_job_creation, _clear_test_collections, \
+        _verify_lock_creation
 
 def run_test_curation_of_timed_out_jobs(client, test_instance):
     test3_key = _generate_key()

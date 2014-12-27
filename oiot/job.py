@@ -1,12 +1,11 @@
-import sys, traceback
-from . import _generate_key, _Lock, _JournalItem, _Encoder, \
-        JobIsRolledBack, JobIsFailed, FailedToComplete, \
-        FailedToRollBack, RollbackCausedByException, \
-        JobIsTimedOut, _roll_back_journal_item, \
-        CollectionKeyIsLocked, JobIsCompleted, \
-        _create_and_add_lock, _get_lock_collection_key
+import os, sys, traceback, binascii, json, random, string, \
+        datetime, uuid
+from datetime import datetime
 from .settings import _locks_collection, _jobs_collection, \
         _max_job_time_in_ms, _deleted_object_value
+from .exceptions import JobIsRolledBack, JobIsFailed, FailedToComplete, \
+        FailedToRollBack, RollbackCausedByException, JobIsTimedOut, \
+        CollectionKeyIsLocked, JobIsCompleted, _get_httperror_status_code    
 
 from datetime import datetime
 import json
@@ -249,3 +248,173 @@ class Job:
         except Exception as e:
             self.is_failed = True
             raise FailedToComplete(e, traceback.format_exc())
+
+
+class _Lock(object):
+    """
+    Represents a read-write lock and its information.
+    """
+    def __init__(self, job_id = None, job_timestamp = None, timestamp = None,
+                collection = None, key = None, lock_ref = None):
+        """
+        Create a Lock instance.
+        :param job_id: the job ID
+        :param job_timestamp: the job timestamp
+        :param timestamp: the lock timestamp
+        :param collection: the collection
+        :param key: the key
+        :param lock_ref: the o.io ref value for the lock object
+        """
+        self.job_id = job_id
+        self.job_timestamp = job_timestamp
+        self.timestamp = timestamp
+        self.collection = collection
+        self.key = key
+        self.lock_ref = lock_ref
+
+
+class _JournalItem(object):
+    """
+    Represents a journal item and its information.
+    """
+    def __init__(self, timestamp = None, collection = None, key = None,
+                original_value = None, new_value = None):
+        """
+        Create a JournalItem instance.
+        :param timestamp: the timestamp
+        :param collection: the collection
+        :param key: the key
+        :param original_value: the original value
+        :param new_value: the new value
+        """
+        self.timestamp = timestamp
+        self.collection = collection
+        self.key = key
+        self.original_value = original_value
+        self.new_value = new_value
+
+
+class _Encoder(json.JSONEncoder):
+    """
+    Determines how to properly encode objects into JSON.
+    """
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, _JournalItem):
+            return vars(obj)
+        elif isinstance(obj, uuid.UUID):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)
+
+def _generate_key():
+    """
+    Generate a random 16 character alphanumeric string.
+    :return: a random 16 character alphanumeric string.
+    """
+    return str(binascii.b2a_hex(os.urandom(8)))
+
+def _get_lock_collection_key(collection_to_lock, key_to_lock):
+    """
+    Get the key used for the locks collection based on the specified
+    collection name key.
+    :param collection_to_lock: the collection name to lock
+    :param key_to_lock: the key to lock
+    :return: the formatted locks collection key
+    """
+    return collection_to_lock + "-" + str(key_to_lock)
+
+def _create_and_add_lock(client, collection, key, job_id, timestamp):
+    """
+    Create and add a lock to the locks collection. This will instantiate a
+    lock object, add its details to the locks collection in o.io, and return
+    the lock instance.
+    :param client: the client to use
+    :param collection: the collection name
+    :param key: the key
+    :param job_id: the job ID
+    :param timestamp: the timestamp
+    :return: the created lock
+    """
+    lock = _Lock(job_id, timestamp, datetime.utcnow(),
+            collection, key, None)
+    lock_response = client.put(_locks_collection,
+            _get_lock_collection_key(collection, key),
+            json.loads(json.dumps(vars(lock), cls=_Encoder)),
+            False, False)
+    if lock_response.status_code == 412:
+        raise CollectionKeyIsLocked
+    lock_response.raise_for_status()
+    lock.lock_ref = lock_response.ref
+    return lock
+
+def _roll_back_journal_item(client, journal_item, raise_if_timed_out):
+    """
+    Roll back the specified journal item.
+    :param client: the client to use
+    :param journal_item: the journal item to roll back
+    :param raise_if_timed_out: the method to call if the roll back times out
+    """
+    # Don't attempt to roll-back if the original value and the
+    # new value are the same.
+    if journal_item.original_value == journal_item.new_value:
+        return
+    raise_if_timed_out()
+    was_objected_deleted = journal_item.new_value == _deleted_object_value
+    get_response = client.get(journal_item.collection,
+            journal_item.key, None, False)
+    try:
+        get_response.raise_for_status()
+    except Exception as e:
+        if _get_httperror_status_code(e) == 404:
+            if was_objected_deleted is False:
+                return
+        else:
+            raise e
+    # Don't attempt to roll-back if the new value does not match
+    # unless the record was deleted by the job.
+    if (was_objected_deleted is False and
+            get_response.json != journal_item.new_value):
+        return
+    # Was there an original value?
+    if journal_item.original_value:
+        # Put back the original value only if the new
+        # value matches or if the record was deleted by
+        # the job.
+        if ((was_objected_deleted and
+                get_response.status_code == 404) or
+                (was_objected_deleted is False and
+                get_response.json == journal_item.new_value)):
+            original_ref = False
+            if was_objected_deleted is False:
+                original_ref = get_response.ref
+            raise_if_timed_out()
+            try:
+                put_response = client.put(
+                        journal_item.collection,
+                        journal_item.key,
+                        journal_item.original_value,
+                        original_ref, False)
+                put_response.raise_for_status()
+            except Exception as e:
+                # Ignore 412 error if the ref did not match.
+                if (_get_httperror_status_code(e) == 412):
+                    return
+                else:
+                    raise e
+    # No original value indicates that a new record was
+    # added and should be deleted.
+    else:
+        raise_if_timed_out()
+        try:
+            delete_response = client.delete(
+                    journal_item.collection,
+                    journal_item.key,
+                    get_response.ref, False)
+            delete_response.raise_for_status()
+        except Exception as e:
+            # Ignore 412 error if the ref did not match.
+            if (_get_httperror_status_code(e) == 412):
+                return
+            else:
+                raise e
