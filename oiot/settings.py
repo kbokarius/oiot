@@ -1,3 +1,10 @@
+"""
+    oiot.settings
+    ~~~~~~~~~
+    This module implements all configurable settings used by oiot.
+    :copyright: (c) 2014 by Konstantin Bokarius.
+    :license: MIT, see LICENSE for more details.
+"""
 # collection name to use for the locks collection
 _locks_collection = 'oiot-locks'
 

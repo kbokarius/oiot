@@ -4,10 +4,9 @@ from oiot.client import OiotClient
 from oiot.job import Job
 from oiot.exceptions import CollectionKeyIsLocked, JobIsCompleted, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, \
-        FailedToRollBack, RollbackCausedByException, JobIsTimedOut
-       
+        FailedToRollBack, RollbackCausedByException, JobIsTimedOut     
 from datetime import datetime
-from . import _oio_api_key, _clear_test_collections
+from .test_tools import _oio_api_key, _clear_test_collections
 
 class ClientTests(unittest.TestCase):
     def setUp(self):

@@ -7,7 +7,7 @@ from oiot.curator import Curator
 from oiot.exceptions import CollectionKeyIsLocked, JobIsCompleted, \
         JobIsRolledBack, JobIsFailed, FailedToComplete, FailedToRollBack, \
         RollbackCausedByException, JobIsTimedOut, _format_exception
-from . import _were_collections_cleared, _oio_api_key, \
+from .test_tools import _were_collections_cleared, _oio_api_key, \
         _verify_job_creation, _clear_test_collections, \
         _verify_lock_creation
 from .job_tests import run_test_job_timeout, \

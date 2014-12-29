@@ -10,7 +10,7 @@ The OiotClient class inherits from porc.Client and overrides the methods that ne
 
 ## Jobs
 
-Jobs utilize journaling and locking mechanisms where both mechanisms execute under the covers to ease consumption and use. Jobs currently support the get(), post(), put(), and delete() operations. Executing any of these operations through a job will result in the collection key being locked for the lifetime of the job. In order to finish a job it must be explicitly completed by calling the complete() method or explicitly rolled back by calling the roll-back() method. Jobs have a maximum lifetime determined by the _max_job_time_in_ms configuration setting and if that lifetime is exceeded at the time of an operation then the job will fail and automatically be rolled back.
+Jobs utilize journaling and locking mechanisms where both mechanisms execute under the covers to ease consumption and use. Jobs currently support the get(), post(), put(), and delete() operations. Executing any of these operations through a job will result in the collection key being locked for the lifetime of the job. In order to finish a job it must be explicitly completed by calling the complete() method or explicitly rolled back by calling the roll_back() method. Jobs have a maximum lifetime determined by the _max_job_time_in_ms configuration setting and if that lifetime is exceeded at the time of an operation then the job will fail and automatically be rolled back.
 
 Once all operations are executed via a job instance then the complete() method should be called to indicate that the job is complete. Completing a job removes the job, the job's journal, and all locks associated with the job. If a job fails to complete for any reason then a FailedToComplete custom exception is thrown including exception_failing_completion and stacktrace_failing_completion fields that contain the exception and stacktrace that caused the job completion to fail. If a job fails to complete then the curator is expected to roll back the job and clean up.
 
@@ -24,7 +24,7 @@ The sole purpose of a curator is to monitor the 'oiot-locks' and 'oiot-jobs' col
 
 ## Configuration
 
-The following settings are available in \_\_init\_\_.py for configuring oiot behavior:
+The following settings are available in settings.py for configuring oiot behavior:
 
 ```python
 # collection name to use for the locks collection
@@ -97,9 +97,13 @@ try:
     job.post(COLLECTION1, VALUE)
     job.put(COLLECTION2, KEY, VALUE)
     job.complete()
-except RollbackCausedByException, FailedToRollBack, FailedToComplete: 
+except RollbackCausedByException:
     ...
-
+except FailedToRollBack:
+    ...
+except FailedToComplete:
+    ...
+ 
 # to explicitly roll back a job use job.roll_back()
 job = Job(self._client)
 job.post(COLLECTION1, VALUE)

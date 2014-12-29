@@ -1,3 +1,11 @@
+"""
+    oiot.job
+    ~~~~~~~~~
+    This module implements the Job class.
+    :copyright: (c) 2014 by Konstantin Bokarius.
+    :license: MIT, see LICENSE for more details.
+"""
+
 import os, sys, traceback, binascii, json, random, string, \
         datetime, uuid
 from datetime import datetime
@@ -6,9 +14,6 @@ from .settings import _locks_collection, _jobs_collection, \
 from .exceptions import JobIsRolledBack, JobIsFailed, FailedToComplete, \
         FailedToRollBack, RollbackCausedByException, JobIsTimedOut, \
         CollectionKeyIsLocked, JobIsCompleted, _get_httperror_status_code    
-
-# TODO: Add fields to the roll back exceptions to indicate what the original
-# exception and stack trace was.
 
 class Job:
     """

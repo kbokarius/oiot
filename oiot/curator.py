@@ -1,3 +1,10 @@
+"""
+    oiot.curator
+    ~~~~~~~~~
+    This module implements the Curator class.
+    :copyright: (c) 2014 by Konstantin Bokarius.
+    :license: MIT, see LICENSE for more details.
+"""
 from porc import Client
 from .settings import _curators_collection, _locks_collection, \
         _active_curator_key, _curator_inactivity_delay_in_ms, \
@@ -159,8 +166,6 @@ class Curator(Client):
                     response.raise_for_status()
             except _CuratorNoLongerActive:
                 raise
-            # TODO: Change general exception catch to catch
-            # specific exceptions.
             except Exception as e:
                 print('Caught while processing a job: ' +
                       _format_exception(e))
@@ -191,8 +196,6 @@ class Curator(Client):
                         response.raise_for_status()
             except _CuratorNoLongerActive:
                 raise
-            # TODO: Change general exception catch to catch
-            # specific exceptions.
             except Exception as e:
                 print('Caught while processing a lock: ' +
                       _format_exception(e))

@@ -1,3 +1,10 @@
+"""
+    oiot.client
+    ~~~~~~~~~
+    This module implements the OiotClient class.
+    :copyright: (c) 2014 by Konstantin Bokarius.
+    :license: MIT, see LICENSE for more details.
+"""
 from porc import Client
 from datetime import datetime
 from .settings import _locks_collection 

@@ -9,7 +9,7 @@ from oiot.settings import _curator_heartbeat_timeout_in_ms, \
         _additional_timeout_wait_in_ms, _max_job_time_in_ms, \
         _jobs_collection, _locks_collection
 from oiot.job import Job
-from . import _were_collections_cleared, _oio_api_key, \
+from .test_tools import _were_collections_cleared, _oio_api_key, \
         _verify_job_creation, _clear_test_collections, \
         _verify_lock_creation
 

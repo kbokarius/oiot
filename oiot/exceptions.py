@@ -1,3 +1,13 @@
+"""
+    oiot.exceptions
+    ~~~~~~~~~
+    This module implements exception classes and helper methods used
+    by oiot.
+    :copyright: (c) 2014 by Konstantin Bokarius.
+    :license: MIT, see LICENSE for more details.
+"""
+import traceback
+
 class CollectionKeyIsLocked(Exception):
     """
     Raised when a locked key is accessed.
